@@ -1,0 +1,74 @@
+default_language_version:
+  python: python3.9
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.0.1
+    hooks:
+      - id: check-ast
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-merge-conflict
+      - id: debug-statements
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.0
+    hooks:
+      - id: bandit
+        name: Bandit security scanner
+        language_version: python3
+        entry: bandit -r .
+        types: [python]
+        args: ['-iii', '-ll'] # report only issues with high confidence and of medium or above severity
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v0.910
+    hooks:
+      - id: mypy
+        args: ['--strict']
+  
+  - repo: https://github.com/PyCQA/pytype
+    rev: v2021.6.17
+    hooks:
+      - id: pytype
+        name: Pytype type checker
+        language_version: python3
+        entry: pytype
+        types: [python]
+        args: ['--disable=import-error']
+
+  - repo: local
+    hooks:
+      - id: django-test
+        name: Django test
+        entry: python manage.py test
+        language: system
+        pass_filenames: false
+        types: [python]
+
+      - id: isort
+        name: isort import sorter
+        entry: isort --recursive .
+        language: system
+        types: [python]
+        args: ['--skip', '.tox', '.git', '__init__.py', '__pycache__', 'fixtures', '*.pyc', '.cache', 'migrations', 'manage.py', '.venv']
+
+      - id: black
+        name: Black code formatter
+        entry: black .
+        language: system
+        types: [python]
+        pass_filenames: false
+        args: ['--exclude', '.tox', '.git', '__init__.py', '__pycache__', 'fixtures', '*.pyc', '.cache', 'migrations', 'manage.py', '.venv']
+      
+      - id: tox
+        name: tox
+        entry: tox
+        language: system
+        always_run: true
+        pass_filenames: false
+        stages: [commit]
+
+exclude: '\.venv'
