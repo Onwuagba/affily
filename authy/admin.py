@@ -7,18 +7,15 @@ from django.utils.translation import gettext_lazy as _
 
 @admin.register(UserAccount)
 class CustomAdmin(UserAdmin):
-
     # define the fields to show in the list display for staff users
     staff_fields = (
         "username",
         "email",
         "first_name",
-        "created_at",
         "last_name",
         "is_active",
-        "is_deleted",
+        "created_at",
     )
-
 
     list_filter = ("is_staff", "is_superuser", "is_active", "groups", "is_deleted")
 
@@ -52,7 +49,10 @@ class CustomAdmin(UserAdmin):
 
     fieldsets = (
         (None, {"fields": ("username", "password")}),
-        (_("Personal info"), {"fields": ("first_name", "last_name", "phone_number", "email")}),
+        (
+            _("Personal info"),
+            {"fields": ("first_name", "last_name", "phone_number", "email")},
+        ),
         (
             _("Permissions"),
             {
@@ -69,9 +69,7 @@ class CustomAdmin(UserAdmin):
         (_("Important dates"), {"fields": ("last_login", "date_joined")}),
     )
 
-    readonly_fields = [
-        'date_joined', 'last_login'
-    ]
+    readonly_fields = ["date_joined", "last_login"]
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
@@ -94,7 +92,7 @@ class CustomAdmin(UserAdmin):
                 form.base_fields[f].widget = forms.HiddenInput()
 
         return form
-    
+
     def get_list_filter(self, request):
         if not request.user.is_superuser:
             # if the user is not a superuser, remove the "is_superuser" and "is_staff" filters
@@ -103,21 +101,25 @@ class CustomAdmin(UserAdmin):
 
     def get_list_display(self, request):
         if request.user.is_superuser:
-            return self.staff_fields + ("is_staff", "is_superuser",)
+            return self.staff_fields + (
+                "is_staff",
+                "is_superuser",
+            )
 
         elif request.user.is_staff:
             return self.staff_fields
 
         else:
             return super().get_list_display(request)
-        
 
     def get_fieldsets(self, request, obj=None):
         if not request.user.is_superuser:
             # if the user is not a superuser, remove the "Permissions" and "Important dates" sections
             return (
                 (None, {"fields": ("username", "password")}),
-                (_("Personal info"), {"fields": ("first_name", "last_name", "phone_number", "email")}),
+                (
+                    _("Personal info"),
+                    {"fields": ("first_name", "last_name", "phone_number", "email")},
+                ),
             )
         return super().get_fieldsets(request, obj)
-    

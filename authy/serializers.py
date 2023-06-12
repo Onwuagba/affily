@@ -30,6 +30,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         password = validated_data.pop('password', None)
+        validated_data.pop('confirm_password', None)
 
         user = self.Meta.model.objects.create(**validated_data)
 
