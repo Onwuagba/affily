@@ -13,9 +13,37 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+import os
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
+from drf_yasg.views import get_schema_view
+from drf_yasg import openapi
+from rest_framework import permissions
+
+
+schema_view = get_schema_view(
+    openapi.Info(
+        title="Affily API",
+        default_version="v1",
+        description=(
+            "Affiliate Marketing API: "
+            "Automate and manage affiliate programs,"
+            "track conversions, and provide real-time data"
+            "exchange for merchants, publishers, and affiliates."
+        ),
+    ),
+    public=True,
+    permission_classes=[permissions.AllowAny],
+)
+
+base_api_url = os.getenv("BASE_API_URL")
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path(f"{base_api_url}/auth/", include("authy.urls")),
+    path(
+        f"{base_api_url}/doc/",
+        schema_view.with_ui("swagger", cache_timeout=0),
+        name="schema-swagger-ui",
+    ),
 ]
