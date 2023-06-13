@@ -1,10 +1,7 @@
-from celery import shared_task
+import logging
+
 from affily.celery import app
 from authy.utilities.mail.send_mail import send_mail_now
-
-# from api.models import ClaimEmailMessage
-from datetime import datetime
-import logging
 
 logger = logging.getLogger("app")
 
@@ -12,7 +9,8 @@ logger = logging.getLogger("app")
 @app.task()
 def send_welcome_mail(email_content, context):
     logger.info(
-        f"Successfully entered celery to send mail to recipient: {email_content.get('recipient')}"
+        f"Successfully entered celery to send mail to recipient:\
+              {email_content.get('recipient')}"
     )
     return send_mail_now(email_content, context)
 

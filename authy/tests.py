@@ -1,9 +1,9 @@
-from django.contrib.auth import authenticate
-from django.contrib.auth import get_user_model
-from django.db.models import Q
-from django.test import TestCase
 import unittest
+
+from django.contrib.auth import authenticate, get_user_model
 from django.core.exceptions import ValidationError
+from django.test import TestCase
+
 from authy.utilities.mail.send_mail import send_mail_now
 from authy.validators import validate_phone_number
 

@@ -1,5 +1,6 @@
 from django.urls import path
-from authy.views import ConfirmEmailView, RegisterAPIView, Home
+
+from authy.views import ConfirmEmailView, Home, RegisterAPIView
 
 app_name = "auth"
 

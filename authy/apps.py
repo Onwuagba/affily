@@ -5,4 +5,4 @@ class AuthConfig(AppConfig):
     name = "authy"
 
     def ready(self):
-        import authy.signals
+        import authy.signals  # noqa

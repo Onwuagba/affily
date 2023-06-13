@@ -1,9 +1,11 @@
 from typing import Any
+
+from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from authy.models import CustomToken, UserAccount
-from django import forms
 from django.utils.translation import gettext_lazy as _
+
+from authy.models import CustomToken, UserAccount
 from authy.signals import user_created
 
 
@@ -116,7 +118,8 @@ class CustomAdmin(UserAdmin):
 
     def get_fieldsets(self, request, obj=None):
         if not request.user.is_superuser:
-            # if the user is not a superuser, remove the "Permissions" and "Important dates" sections
+            # if the user is not a superuser,
+            # remove the "Permissions" and "Important dates" sections
             return (
                 (None, {"fields": ("username", "password")}),
                 (
@@ -126,15 +129,14 @@ class CustomAdmin(UserAdmin):
             )
         return super().get_fieldsets(request, obj)
     
-
     def save_model(self, request: Any, obj: Any, form: Any, change: Any) -> None:
         # fire signal when user is created from Django Admin
         super().save_model(request, obj, form, change)
 
         # Emit the user_created signal
-        user_created.send(sender=self.__class__, instance=obj, created=True, request=request)
-
-
+        user_created.send(
+            sender=self.__class__, instance=obj, created=True, request=request
+        )
 
 class CustomTokenAdmin(admin.ModelAdmin):
     list_display = ("key", "user", "created", "expiry_date", "verified_on")

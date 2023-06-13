@@ -1,12 +1,11 @@
-import contextlib
-from authy.signals import user_created
-from rest_framework import serializers
-from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
 from django.db.models import F
 from django.utils import timezone
+from rest_framework import serializers
 
 from authy.models import CustomToken, UserAccount
+from authy.signals import user_created
 
 
 class RegistrationSerializer(serializers.ModelSerializer):
@@ -58,12 +57,11 @@ class ConfirmEmailSerializer(serializers.Serializer):
         try:
             token = CustomToken.generate_key(self)
             CustomToken.objects.filter(user=instance.user, key=instance.key).update(
-                key=token,
-                expiry_date=F("created"),
-                verified_on=timezone.now()
+                key=token, expiry_date=F("created"), verified_on=timezone.now()
             )
             UserAccount.objects.filter(uid=instance.user.uid).update(is_active=True)
-        except Exception as ex:
+        except Exception:
             serializers.ValidationError(
-                "Error occurred confirming your email. Please try again later.")
+                "Error occurred confirming your email. Please try again later."
+            )
         return instance

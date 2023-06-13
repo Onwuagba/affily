@@ -1,17 +1,16 @@
+import logging
 from base64 import urlsafe_b64decode
-from datetime import datetime
-from django.shortcuts import render
+
+from django.utils import timezone
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView, UpdateAPIView
-from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
+from rest_framework.views import APIView
+
+from authy.api_response import CustomAPIResponse
 from authy.models import CustomToken, UserAccount
 from authy.serializers import ConfirmEmailSerializer, RegistrationSerializer
-from rest_framework.exceptions import ValidationError
-from authy.api_response import CustomAPIResponse
-from django.contrib.auth.tokens import default_token_generator
-import logging
-from django.utils import timezone
 
 logger = logging.getLogger("app")
 

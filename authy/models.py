@@ -1,13 +1,14 @@
 import datetime
-from django.db import IntegrityError, models
-from django.contrib.auth.validators import UnicodeUsernameValidator
-from django.contrib.auth.models import BaseUserManager, AbstractUser
 import uuid
-from django.db import transaction
-from rest_framework.authtoken.models import Token
-from authy.validators import validate_phone_number
-from django.utils.translation import gettext_lazy as _
+
+from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.contrib.auth.validators import UnicodeUsernameValidator
+from django.db import IntegrityError, models, transaction
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
+from rest_framework.authtoken.models import Token
+
+from authy.validators import validate_phone_number
 
 # Create your models here.
 

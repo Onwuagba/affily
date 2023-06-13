@@ -1,15 +1,14 @@
-from django.db.models.signals import post_save
-from django.dispatch import receiver
+import logging
+
+from django.contrib.sites.shortcuts import get_current_site
+from django.dispatch import Signal, receiver
+from django.urls import reverse
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
+
 from authy.models import CustomToken
 from authy.utilities.constants import email_sender
-import logging
-from django.urls import reverse
-from django.contrib.auth.tokens import default_token_generator
-from django.contrib.sites.shortcuts import get_current_site
-from django.utils.http import urlsafe_base64_encode
-from django.utils.encoding import force_bytes
 from authy.utilities.tasks import send_welcome_mail
-from django.dispatch import Signal
 
 logger = logging.getLogger("app")
 
