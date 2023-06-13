@@ -28,16 +28,26 @@ repos:
     hooks:
       - id: mypy
         args: ['--strict']
-  
-  - repo: https://github.com/PyCQA/pytype
-    rev: v2021.6.17
+
+  - repo: https://github.com/google/pytype
+    rev: '2023.06.02'
     hooks:
       - id: pytype
         name: Pytype type checker
-        language_version: python3
+        language: system
         entry: pytype
         types: [python]
         args: ['--disable=import-error']
+
+  - repo: https://github.com/mattseymour/pre-commit-pytype
+    rev: '2023.5.8'
+    hooks:
+      - id: pytype
+        language: system
+        args:
+          - "-j"
+          - "auto"
+          - "--disable=import-error"
 
   - repo: local
     hooks:
@@ -50,10 +60,23 @@ repos:
 
       - id: isort
         name: isort import sorter
-        entry: isort --recursive .
+        entry: isort
         language: system
         types: [python]
-        args: ['--skip', '.tox', '.git', '__init__.py', '__pycache__', 'fixtures', '*.pyc', '.cache', 'migrations', 'manage.py', '.venv']
+        args:
+          - --recursive
+          - .
+          - --skip
+          - .tox
+          - .git
+          - __init__.py
+          - __pycache__
+          - fixtures
+          - "*.pyc"
+          - .cache
+          - migrations
+          - manage.py
+          - .venv
 
       - id: black
         name: Black code formatter
@@ -62,7 +85,17 @@ repos:
         types: [python]
         pass_filenames: false
         args: ['--exclude', '.tox', '.git', '__init__.py', '__pycache__', 'fixtures', '*.pyc', '.cache', 'migrations', 'manage.py', '.venv']
-      
+
+      # - id: pytype
+      #   name: Pytype
+      #   entry: pytype
+      #   language: system
+      #   types: [python]
+      #   args:
+      #     - '--jobs=auto'
+      #     - '--keep-going'
+      #   files: \.py$
+
       - id: tox
         name: tox
         entry: tox

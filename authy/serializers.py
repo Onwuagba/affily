@@ -1,6 +1,12 @@
+import contextlib
+from authy.signals import user_created
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth import get_user_model
+from django.db.models import F
+from django.utils import timezone
+
+from authy.models import CustomToken, UserAccount
 
 
 class RegistrationSerializer(serializers.ModelSerializer):
@@ -15,7 +21,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = get_user_model()
-        fields = '__all__'
+        fields = "__all__"
 
     def validate(self, data):
         error = {}
@@ -29,27 +35,35 @@ class RegistrationSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        password = validated_data.pop('password', None)
-        validated_data.pop('confirm_password', None)
+        password = validated_data.pop("password", None)
+        validated_data.pop("confirm_password", None)
 
-        user = self.Meta.model.objects.create(**validated_data)
+        user = self.Meta.model(**validated_data)
 
         user.set_password(password)
         user.save()
-        # token = Token.objects.create(user=user)
-        # uid = urlsafe_b64encode(bytes(str(user.uid), "utf-8")).decode("utf-8")
 
-        # email_content = {
-        #     "subject": "Confirm your account on Gifty",
-        #     "sender": email_sender,
-        #     "recipient": self.validated_data["email"],
-        #     "template": "confirm_email.html",
-        # }
-        # confirm_url = request.build_absolute_uri(f"confirm_email/{uid}/{token}")
-        # print(confirm_url)
-        # context = {"name": self.validated_data["first_name"], "url": confirm_url}
+        user_created.send(
+            sender=UserAccount,
+            instance=user,
+            created=True,
+            request=self.context.get("request"),
+        )
 
-        # confirm_mail, result = send_mail_now(email_content, context)
-        # if not result:
-        #     raise serializers.ValidationError(confirm_mail)
         return user
+
+
+class ConfirmEmailSerializer(serializers.Serializer):
+    def update(self, instance, validated_data):
+        try:
+            token = CustomToken.generate_key(self)
+            CustomToken.objects.filter(user=instance.user, key=instance.key).update(
+                key=token,
+                expiry_date=F("created"),
+                verified_on=timezone.now()
+            )
+            UserAccount.objects.filter(uid=instance.user.uid).update(is_active=True)
+        except Exception as ex:
+            serializers.ValidationError(
+                "Error occurred confirming your email. Please try again later.")
+        return instance

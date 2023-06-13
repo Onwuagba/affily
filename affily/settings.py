@@ -103,9 +103,7 @@ DATABASES = {
 # https://docs.djangoproject.com/en/3.0/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        "NAME": "authy.validators.CustomPasswordValidator"
-    },
+    {"NAME": "authy.validators.CustomPasswordValidator"},
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
@@ -123,6 +121,28 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# CELERY
+CELERY_BROKER_URL = (
+    "redis://" + os.getenv("REDIS_HOST") + ":" + os.getenv("REDIS_PORT")
+)
+CELERY_RESULT_BACKEND = (
+    "redis://" + os.getenv("REDIS_HOST") + ":" + os.getenv("REDIS_PORT")
+)
+CELERY_TIMEZONE = "Africa/Lagos"
+# CELERY_BEAT_SCHEDULE = {
+#  'send-notification-every-10min': {
+#        'task': 'common.utilities.tasks.resend_welcome_email',
+#        'schedule': crontab(minute=0), # execute every hour
+#     }
+# }
+
+# Email configuration
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND")
+EMAIL_HOST = os.getenv("EMAIL_HOST")
+EMAIL_PORT = os.getenv("EMAIL_PORT")
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = utils.decrypt_data(os.getenv("EMAIL_HOST_PASSWORD"))
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS")
 
 AUTH_USER_MODEL = "authy.UserAccount"
 

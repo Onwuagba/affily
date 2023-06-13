@@ -1,9 +1,13 @@
-from django.db import models
+import datetime
+from django.db import IntegrityError, models
 from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.contrib.auth.models import BaseUserManager, AbstractUser
 import uuid
+from django.db import transaction
+from rest_framework.authtoken.models import Token
 from authy.validators import validate_phone_number
 from django.utils.translation import gettext_lazy as _
+from django.utils import timezone
 
 # Create your models here.
 
@@ -59,7 +63,9 @@ class UserAccount(AbstractUser, BaseModel):
 
     username = models.CharField(
         _("username"),
-        max_length=150, null=False, blank=False,
+        max_length=150,
+        null=False,
+        blank=False,
         unique=True,
         validators=[username_validator],
         error_messages={
@@ -70,11 +76,19 @@ class UserAccount(AbstractUser, BaseModel):
     last_name = models.CharField(max_length=150, null=False, blank=False)
     email = models.EmailField(db_index=True, max_length=255, unique=True)
     # password = models.CharField(max_length=32, null=False, blank=False)
-    phone_number = models.CharField(max_length=20, validators=[validate_phone_number], blank=False, null=False)
+    phone_number = models.CharField(
+        max_length=20,
+        validators=[validate_phone_number],
+        unique=True,
+        blank=False,
+        null=False,
+    )
     is_active = models.BooleanField(
         _("Activate Account"),
         default=False,
-        help_text=_("Designates whether the user has completed validation and is active."),
+        help_text=_(
+            "Designates whether the user has completed validation and is active."
+        ),
     )
     regToken = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
 
@@ -87,3 +101,29 @@ class UserAccount(AbstractUser, BaseModel):
 
     def get_full_name(self) -> str:
         return super().get_full_name()
+
+
+class CustomToken(Token):
+    expiry_date = models.DateTimeField(null=False, blank=False)
+    verified_on = models.DateTimeField(null=True, blank=True)
+
+    def create_expiry_date(self, created):
+        return created + datetime.timedelta(days=3) if created else None
+
+    def save(self, *args, **kwargs):
+        if self._state.adding:
+            while True:
+                try:
+                    with transaction.atomic():
+                        if not self.created:
+                            self.created = timezone.now()
+                        if not self.key:
+                            self.key = self.generate_key()
+                        self.expiry_date = self.create_expiry_date(self.created)
+                        super(Token, self).save(*args, **kwargs)
+                        break  # Exit the loop if the expiry is set successfully
+                except IntegrityError:
+                    pass  # Retry the creation of the expiry time
+
+        else:
+            super(Token, self).save(*args, **kwargs)

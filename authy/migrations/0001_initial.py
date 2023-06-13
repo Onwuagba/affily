@@ -10,10 +10,6 @@ import uuid
 class Migration(migrations.Migration):
     initial = True
 
-    dependencies = [
-        ("auth", "0012_alter_user_first_name_max_length"),
-    ]
-
     operations = [
         migrations.CreateModel(
             name="UserAccount",
@@ -94,13 +90,16 @@ class Migration(migrations.Migration):
                 (
                     "phone_number",
                     models.CharField(
-                        max_length=20, validators=[authy.models.validate_phone_number]
+                        max_length=20,
+                        validators=[authy.models.validate_phone_number],
                     ),
                 ),
                 ("is_active", models.BooleanField(default=False)),
                 (
                     "regToken",
-                    models.UUIDField(default=uuid.uuid4, editable=False, unique=True),
+                    models.UUIDField(
+                        default=uuid.uuid4, editable=False, unique=True
+                    ),
                 ),
                 (
                     "groups",

@@ -14,7 +14,6 @@ def validate_phone_number(value):
 
 
 class CustomPasswordValidator:
-
     def validate(self, password: str, user=None) -> None:
         """
         Validates a given password according to the specified criteria.
@@ -23,17 +22,19 @@ class CustomPasswordValidator:
             password (str): The password to be validated.
 
         Raises:
-            ValueError: If the given password is not at least 8 characters long, or does not contain at least one uppercase letter, one lowercase letter, one digit, and one special character.
+            ValueError: If the given password is not at least 8 characters long, \
+                or does not contain at least one uppercase letter, \
+                    one lowercase letter, one digit, and one special character.
         """
         regex = r"^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*\W).{8,}$"
         if not re.match(regex, password):
             raise ValueError(
-                "Password must be at least 8 characters and contain at least one uppercase letter, one lowercase letter, one digit, and one special character."
+                "Password must be at least 8 characters \
+                    and contain at least one uppercase letter, \
+                        one lowercase letter, one digit, and one special character."
             )
 
     def get_help_text(self):
-        return (
-            "Your password must be at least 8 characters,\
+        return "Your password must be at least 8 characters,\
                 containing 1 uppercase , 1 lowercase \
                     1 special character and 1 number."
-        )
