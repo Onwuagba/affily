@@ -1,6 +1,12 @@
 from django.urls import path
 
-from authy.views import ConfirmEmailView, Home, RegisterAPIView
+from authy.views import (
+    ChangePasswordView,
+    ConfirmEmailView,
+    ForgotPasswordView,
+    Home,
+    RegisterAPIView,
+)
 
 app_name = "auth"
 
@@ -11,6 +17,12 @@ urlpatterns = [
     path(
         "confirm_email/<str:uid>/<str:token>",
         ConfirmEmailView.as_view(),
+        name="confirm_email",
+    ),
+    path("forgot_password", ForgotPasswordView.as_view()),
+    path(
+        "new_password/<str:uid>/<str:token>",
+        ChangePasswordView.as_view(),
         name="confirm_email",
     ),
     # path("validate_token/", TokenVerifyView.as_view(), name="validate"),

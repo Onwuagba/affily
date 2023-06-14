@@ -30,9 +30,9 @@ class CustomPasswordValidator:
         regex = r"^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*\W).{8,}$"
         if not re.match(regex, password):
             raise ValueError(
-                "Password must be at least 8 characters \
-                    and contain at least one uppercase letter, \
-                        one lowercase letter, one digit, and one special character."
+                "Password must be at least 8 characters"
+                " and contain at least one uppercase letter,"
+                " one lowercase letter, one digit, and one special character."
             )
 
     def get_help_text(self):

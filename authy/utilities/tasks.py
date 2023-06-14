@@ -9,17 +9,15 @@ logger = logging.getLogger("app")
 @app.task()
 def send_email_confirmation_mail(email_content, context):
     logger.info(
-        f"Successfully entered celery to send mail confirmation to recipient:\
-              {email_content.get('recipient')}"
+        f"Successfully entered celery to send mail confirmation to recipient: {email_content.get('recipient')}"
     )
     return send_mail_now(email_content, context)
 
 
 @app.task()
-def send_welcome_mail(email_content, context):
+def send_notif_email(email_content, context):
     logger.info(
-        f"Successfully entered celery to send welcome mail to recipient:\
-              {email_content.get('recipient')}"
+        f"Successfully entered celery to send mail to recipient:{email_content.get('recipient')}"
     )
     return send_mail_now(email_content, context)
 

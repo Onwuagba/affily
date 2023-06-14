@@ -7,7 +7,7 @@ class CustomAPIResponse:
     def __init__(self, message, status_code, status):
         if not all([message, status_code, status]):
             raise ValidationError("message and status code cannot br empty")
-        
+
         self.data = {"status": status}
         if status == "failed":
             if isinstance(message, (ValidationError, ValueError)):
@@ -45,6 +45,6 @@ class CustomAPIResponse:
         res = []
         for key, value in message.items():
             if isinstance(value, list):
-                value = ' '.join(value)
+                value = " ".join(value)
             res.append(f"{key.upper().replace('_', ' ')}: {value}")
         return "| ".join(res)
