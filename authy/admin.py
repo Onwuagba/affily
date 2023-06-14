@@ -128,7 +128,7 @@ class CustomAdmin(UserAdmin):
                 ),
             )
         return super().get_fieldsets(request, obj)
-    
+
     def save_model(self, request: Any, obj: Any, form: Any, change: Any) -> None:
         # fire signal when user is created from Django Admin
         super().save_model(request, obj, form, change)
@@ -137,6 +137,7 @@ class CustomAdmin(UserAdmin):
         user_created.send(
             sender=self.__class__, instance=obj, created=True, request=request
         )
+
 
 class CustomTokenAdmin(admin.ModelAdmin):
     list_display = ("key", "user", "created", "expiry_date", "verified_on")

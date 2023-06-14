@@ -83,12 +83,13 @@
     ol,
     blockquote {
       margin: .4em 0 1.1875em;
-      font-size: 16px;
+      font-size: 13px;
       line-height: 1.625;
+      font-family: Verdana, Geneva, Tahoma, sans-serif;
     }
 
     p.sub {
-      font-size: 13px;
+      font-size: 12px;
     }
     /* Utilities ------------------------------ */
 
@@ -473,9 +474,15 @@
                   <tr>
                     <td class="content-cell">
                       <div class="f-fallback">
-                        <h1>Hello {{username | title}},</h1>
+                        <h1>Hi {{username | title}},</h1>
                         <p>
-                            Thank you for signing up. Please click the button below to confirm your email address and activate your <b>AFFILY</b> account. </p>
+                          Welcome to the ⭐ Affily family! We're thrilled to have you join us on this thrilling adventure of affiliate marketing. Get ready for an incredible experience filled with endless opportunities to earn and grow your online business.</p><p> At Affily, we believe in empowering our community of passionate publishers like you. Together, we'll explore new horizons, unlock hidden potentials, and achieve remarkable milestones. We're here to support you every step of the way. </p><p>Here's a sneak peek of what's in store for you:</p>
+                          <ul>
+                            <li>Leverage our intuitive platform to track and optimize your affiliate campaigns effortlessly.</li>
+                            <li>Benefit from our extensive network of reputable merchants, offering high-converting products in various niches.</li>
+                            <li>Join our vibrant community of like-minded affiliates, exchange ideas, and collaborate for mutual success.</li>
+                            <li>Stay tuned for exclusive promotions, contests, and incentives to supercharge your earnings.</li>
+                          </ul>
                         <!-- Action -->
                         <table class="body-action" align="center" width="100%" cellpadding="0" cellspacing="0" role="presentation">
                           <tr>
@@ -483,8 +490,7 @@
                               <table width="100%" border="0" cellspacing="0" cellpadding="0" role="presentation">
                                 <tr>
                                   <td align="center">
-                                    <a href="{{ url }}" class="f-fallback button button--red" target="_blank">Confirm your email</a>
-                                    <p class="sub">Link valid for only 72 hours.</p>
+                                    <a href="{{ url }}" class="f-fallback button button--red" target="_blank">Get Started</a>
                                   </td>
                                 </tr>
                               </table>
@@ -495,8 +501,8 @@
                         <table class="body-sub" role="presentation">
                           <tr>
                             <td>
-                              <p class="f-fallback sub">If you're having trouble with the button above, copy and paste the URL below into your web browser.</p>
-                              <p class="f-fallback sub">{{ url }}</p>
+                              <p class="f-fallback sub">If you have any questions, suggestions, or just want to say hello, don't hesitate to reach out to our friendly support team at <b>support@affily.com</b>. We're always here to assist you.</p>
+                              <p class="f-fallback sub">Let's make amazing things happen together!</p>
                             </td>
                           </tr>
                         </table>
@@ -511,9 +517,10 @@
                 <table class="email-footer" align="center" width="570" cellpadding="0" cellspacing="0" role="presentation">
                   <tr>
                     <td class="content-cell-footer" align="center">
-                      <p class="f-fallback sub align-center">
-                        AFFILY
-                        <br>Your #1 affiliate marketing system
+                      <p class="f-fallback sub align-center" style="font-size: 10px;">
+                        This email was sent to {{email}}
+                        <br> &copy; 2023 Affily. All rights reserved. <br> <b>affily.com</b>
+                        
                       </p>
                     </td>
                   </tr>

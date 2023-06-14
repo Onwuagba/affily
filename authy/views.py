@@ -66,7 +66,7 @@ class ConfirmEmailView(UpdateAPIView):
 
     permission_classes = (AllowAny,)
     serializer_class = ConfirmEmailSerializer
-    http_method_names = ["get"]
+    http_method_names = ["patch"]
 
     def get_object(self, uid, token):
         try:
@@ -91,19 +91,21 @@ class ConfirmEmailView(UpdateAPIView):
 
         if (
             token_obj.expiry_date is not None
-            and token_obj.expiry_date < timezone.now()
+            and token_obj.expiry_date < timezone.localtime()
         ):
             raise ValidationError("Confirmation link has expired")
 
         return token_obj
 
-    def get(self, request, **kwargs):
+    def patch(self, request, **kwargs):
         uid = kwargs.get("uid", None)
         token = kwargs.get("token", None)
 
         try:
             obj = self.get_object(uid, token)
-            serializer = self.serializer_class(obj, data=request.data)
+            serializer = self.serializer_class(
+                obj, data=request.data, context={"request": request}
+            )
             if serializer.is_valid(raise_exception=True):
                 serializer.save()
                 message = "Account activation is complete. Please proceed to login"

@@ -117,7 +117,7 @@ class CustomToken(Token):
                 try:
                     with transaction.atomic():
                         if not self.created:
-                            self.created = timezone.now()
+                            self.created = timezone.localtime()
                         if not self.key:
                             self.key = self.generate_key()
                         self.expiry_date = self.create_expiry_date(self.created)

@@ -8,7 +8,7 @@ from django.utils.http import urlsafe_base64_encode
 
 from authy.models import CustomToken
 from authy.utilities.constants import email_sender
-from authy.utilities.tasks import send_welcome_mail
+from authy.utilities.tasks import send_email_confirmation_mail
 
 logger = logging.getLogger("app")
 
@@ -19,7 +19,7 @@ user_created = Signal()
 def send_email_on_user_creation(sender, instance, created, request, **kwargs):
     if created:
         email_content = {
-            "subject": "Confirm your email account on Affily",
+            "subject": "Hallo 👋 Please confirm your account on Affily",
             "sender": email_sender,
             "recipient": instance.email,
             "template": "verify-account.html",
@@ -35,7 +35,7 @@ def send_email_on_user_creation(sender, instance, created, request, **kwargs):
 
             context = {"username": instance.username, "url": confirm_url}
             print(context)
-            send_welcome_mail.delay(email_content, context)
+            send_email_confirmation_mail.delay(email_content, context)
         except Exception as e:
             logger.error(
                 f"Error sending welcome email to {instance.username}", exc_info=True
@@ -49,7 +49,7 @@ def send_email_on_user_creation(sender, instance, created, request, **kwargs):
 # def send_email_on_user_creation(sender, instance, created, request, **kwargs):
 #     if created:
 #         email_content = {
-#             "subject": "Confirm your email account on Affily",
+#             "subject": "Hallo 👋 Please confirm your account on Affily",
 #             "sender": email_sender,
 #             "recipient": instance.email,
 #             "template": "verify-account.html",
@@ -64,7 +64,7 @@ def send_email_on_user_creation(sender, instance, created, request, **kwargs):
 #             confirm_url = f"{request.scheme}://{domain}{confirm_url}"
 
 #             context = {"username": instance.username, "url": confirm_url}
-#             send_welcome_mail.delay(email_content, context)
+#             send_email_confirmation_mail.delay(email_content, context)
 #         except Exception as e:
 #             logger.error(
 #                 f"Error sending welcome email to {instance.username}", exc_info=True
