@@ -1,12 +1,23 @@
-from django.http import Http404
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 
 class CustomAPIResponse:
     def __init__(self, message, status_code, status):
+        """
+        Set the response data and status code.
+
+        Args:
+            message (str or dict): The message or data to be set in the response.
+            status_code (int): The HTTP status code to be set in the response.
+            status (str): The status string to be set in the response.
+
+        Raises:
+            ValidationError: If message and status code are empty.
+
+        """
         if not all([message, status_code, status]):
-            raise ValidationError("message and status code cannot br empty")
+            raise ValidationError("message and status code cannot be empty")
 
         self.data = {"status": status}
         if status == "failed":

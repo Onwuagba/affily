@@ -108,7 +108,8 @@ class TestSendMailNow(unittest.TestCase):
         self.assertIsInstance(result[0], str)
         self.assertIsInstance(result[1], bool)
 
-    # TODO Rename this here and in `test_send_mail_success` and `test_send_mail_return_type`
+    # TODO Rename this here and in `test_send_mail_success`
+    # and `test_send_mail_return_type`
     def _extracted_from_test_send_mail_return_type_2(self):
         content = {
             "subject": "Test Email",

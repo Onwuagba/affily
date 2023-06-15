@@ -1,18 +1,19 @@
+import logging
+from base64 import urlsafe_b64encode
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
-from django.utils import timezone
-from django.db.models import F
-from rest_framework import serializers
-from django.core.validators import validate_email
-from django.db import transaction
-from authy.models import CustomToken, UserAccount
-from authy.utilities.constants import email_sender, admin_support_sender
-from authy.signals import user_created
-from authy.utilities.tasks import send_notif_email
-import logging
-from django.core.exceptions import ValidationError
-from base64 import urlsafe_b64encode
 from django.contrib.auth.tokens import default_token_generator
+from django.core.exceptions import ValidationError
+from django.db import transaction
+from django.db.models import F
+from django.utils import timezone
+from rest_framework import serializers
+
+from authy.models import CustomToken, UserAccount
+from authy.signals import user_created
+from authy.utilities.constants import admin_support_sender, email_sender
+from authy.utilities.tasks import send_notif_email
 
 logger = logging.getLogger("app")
 
@@ -23,23 +24,22 @@ class RegistrationSerializer(serializers.ModelSerializer):
         min_length=8,
         write_only=True,
         required=True,
-        validators=[validate_password],
+        validators=[validate_password]
     )
     confirm_password = serializers.CharField(write_only=True, required=True)
 
     class Meta:
-        model = get_user_model()
-        fields = "__all__"
+        model = UserAccount
+        exclude = ["regToken"]
 
     def validate(self, data):
-        error = {}
         if not data.get("password") or not data.get("confirm_password"):
-            error["password"] = "Please enter a password and confirm it"
+            raise serializers.ValidationError(
+                "Please enter a password and confirm it"
+            )
         if data.get("password") != data.get("confirm_password"):
-            error["password"] = "Your passwords do not match"
+            raise serializers.ValidationError("Your passwords do not match")
 
-        if error:
-            raise serializers.ValidationError(error)
         return data
 
     def create(self, validated_data):
@@ -52,7 +52,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
         user.save()
 
         user_created.send(
-            sender=UserAccount,
+            sender=self.Meta.model,
             instance=user,
             created=True,
             request=self.context.get("request"),
@@ -74,7 +74,7 @@ class ConfirmEmailSerializer(serializers.Serializer):
                     verified_on=timezone.localtime(),
                 )
                 UserAccount.objects.filter(uid=instance.user.uid).update(
-                    is_active=True
+                    is_active=True, regToken=instance.key
                 )
             except Exception as e:
                 transaction.set_rollback(True)
@@ -128,7 +128,7 @@ class ForgotPasswordSerializer(serializers.Serializer):
         uid = urlsafe_b64encode(bytes(str(user.uid), "utf-8")).decode("utf-8")
 
         email_content = {
-            "subject": "Reset password email verification",
+            "subject": "Reset password verification",
             "sender": email_sender,
             "recipient": user.email,
             "template": "forgot_password.html",
@@ -168,7 +168,6 @@ class ChangePasswordSerializer(serializers.Serializer):
             instance.set_password(validated_data["new_password"])
             instance.save()
 
-            # call celery
             self.send_mail(instance)
             return instance
         else:
@@ -190,4 +189,34 @@ class ChangePasswordSerializer(serializers.Serializer):
         }
         logger.info(f"context for password changed email to be sent: {context}")
 
+        # call celery
         send_notif_email.delay(email_content, context)
+
+
+class RegenerateEmailVerificationSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=False)
+    username = serializers.CharField(required=False)
+
+    def validate(self, data):
+        UserAccountModel = get_user_model()
+        try:
+            user = UserAccountModel.objects.get(email=data.get("email"))
+        except (ValidationError, UserAccountModel.DoesNotExist):
+            try:
+                user = UserAccountModel.objects.get(username=data.get("username"))
+            except UserAccountModel.DoesNotExist as e:
+                raise serializers.ValidationError(
+                    "No account found with this email or username"
+                ) from e
+
+        if user and user.is_active == True:
+            raise serializers.ValidationError("Account validated already")
+
+        user_created.send(
+            sender=UserAccountModel,
+            instance=user,
+            created=True,
+            request=self.context.get("request"),
+        )
+
+        return user

@@ -38,15 +38,17 @@ ALLOWED_HOSTS = [os.getenv("AF_ALLOWED_HOSTS")]
 # Application definition
 
 INSTALLED_APPS = [
-    "django.contrib.admin",
     "django.contrib.auth",
+    "django.contrib.admin",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    'drf_api_logger',
     "authy",
     "drf_yasg",
+    "notification",
 ]
 
 MIDDLEWARE = [
@@ -57,6 +59,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    'drf_api_logger.middleware.api_logger_middleware.APILoggerMiddleware',
 ]
 
 ROOT_URLCONF = "affily.urls"
@@ -99,6 +102,13 @@ DATABASES = {
     }
 }
 
+# API LOGGER
+DRF_API_LOGGER_DATABASE = True
+DRF_LOGGER_QUEUE_MAX_SIZE = 100
+DRF_LOGGER_INTERVAL = 600
+DRF_API_LOGGER_EXCLUDE_KEYS = ['password', 'token', 'access', 'refresh']
+DRF_API_LOGGER_SLOW_API_ABOVE = 200  # to identify slow API calls
+DRF_API_LOGGER_TIMEDELTA = 60  # representing UTC + 60 mins
 
 # Password validation
 # https://docs.djangoproject.com/en/3.0/ref/settings/#auth-password-validators
@@ -106,7 +116,10 @@ DATABASES = {
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "authy.validators.CustomPasswordValidator"},
     {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "UserAttributeSimilarityValidator"
+        )
     },
     {
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
@@ -197,7 +210,9 @@ LOGGING = {
     "disable_existing_loggers": False,
     "formatters": {
         "verbose": {
-            "format": "[%(asctime)s]- %(levelname)s - [%(name)s:%(lineno)s] - %(message)s",
+            "format": (
+                "[%(asctime)s]- %(levelname)s - [%(name)s:%(lineno)s] - %(message)s"
+            ),
             "datefmt": "%d/%b/%Y %H:%M:%S",
         },
     },

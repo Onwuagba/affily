@@ -66,6 +66,7 @@ repos:
         args:
           - --recursive
           - .
+          - --profile=black
           - --skip
           - .tox
           - .git

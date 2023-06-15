@@ -21,7 +21,13 @@ class CustomAdmin(UserAdmin):
         "created_at",
     )
 
-    list_filter = ("is_staff", "is_superuser", "is_active", "groups", "is_deleted")
+    list_filter = (
+        "is_staff",
+        "is_superuser",
+        "is_active",
+        "groups",
+        "is_deleted",
+    )
 
     add_fieldsets = (
         (
@@ -99,7 +105,8 @@ class CustomAdmin(UserAdmin):
 
     def get_list_filter(self, request):
         if not request.user.is_superuser:
-            # if the user is not a superuser, remove the "is_superuser" and "is_staff" filters
+            # if the user is not a superuser,
+            # remove the "is_superuser" and "is_staff" filters
             return ("is_active", "groups", "is_deleted")
         return super().get_list_filter(request)
 
@@ -124,19 +131,31 @@ class CustomAdmin(UserAdmin):
                 (None, {"fields": ("username", "password")}),
                 (
                     _("Personal info"),
-                    {"fields": ("first_name", "last_name", "phone_number", "email")},
+                    {
+                        "fields": (
+                            "first_name",
+                            "last_name",
+                            "phone_number",
+                            "email",
+                        )
+                    },
                 ),
             )
         return super().get_fieldsets(request, obj)
 
     def save_model(self, request: Any, obj: Any, form: Any, change: Any) -> None:
-        # fire signal when user is created from Django Admin
-        super().save_model(request, obj, form, change)
+        # Check if the user is being created
+        if not change:
+            # fire signal only when user is created from Django Admin
+            super().save_model(request, obj, form, change)
 
-        # Emit the user_created signal
-        user_created.send(
-            sender=self.__class__, instance=obj, created=True, request=request
-        )
+            # Emit the user_created signal
+            user_created.send(
+                sender=self.__class__, instance=obj, created=True, request=request
+            )
+        else:
+            # User is being updated, call the parent method without firing the signal
+            super().save_model(request, obj, form, change)
 
 
 class CustomTokenAdmin(admin.ModelAdmin):

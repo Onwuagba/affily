@@ -91,7 +91,13 @@ class UserAccount(AbstractUser, BaseModel):
             "Designates whether the user has completed validation and is active."
         ),
     )
-    regToken = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    regToken = models.CharField(
+        _("Token"),
+        max_length=40,
+        null=True,
+        blank=True,
+        help_text=_("Token user used to validate account."),
+    )
 
     REQUIRED_FIELDS = ["email", "first_name", "last_name"]
 
@@ -105,6 +111,10 @@ class UserAccount(AbstractUser, BaseModel):
 
 
 class CustomToken(Token):
+    id = models.UUIDField(
+        _("ID"), default=uuid.uuid4, editable=False, unique=True, primary_key=True
+    )
+    key = models.CharField(_("Key"), max_length=40)
     expiry_date = models.DateTimeField(null=False, blank=False)
     verified_on = models.DateTimeField(null=True, blank=True)
 

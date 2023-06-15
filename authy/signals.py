@@ -3,6 +3,7 @@ import logging
 from django.contrib.sites.shortcuts import get_current_site
 from django.dispatch import Signal, receiver
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 
@@ -25,7 +26,21 @@ def send_email_on_user_creation(sender, instance, created, request, **kwargs):
             "template": "verify-account.html",
         }
         try:
-            token, _ = CustomToken.objects.update_or_create(user=instance)
+            tokenModel = CustomToken()
+
+            token, new_obj = CustomToken.objects.get_or_create(
+                user=instance,
+            )
+
+            # obj is being updated.
+            # Called from regenerate email verification
+            if not new_obj:
+                token.created = timezone.localtime()
+                token.key = tokenModel.generate_key()
+                token.verified_on = None
+                token.expiry_date = tokenModel.create_expiry_date(token.created)
+                token.save()
+
             uid = urlsafe_base64_encode(force_bytes(instance.pk))
             domain = get_current_site(request).domain
             confirm_url = reverse(
@@ -38,7 +53,8 @@ def send_email_on_user_creation(sender, instance, created, request, **kwargs):
             send_email_confirmation_mail.delay(email_content, context)
         except Exception as e:
             logger.error(
-                f"Error sending welcome email to {instance.username}", exc_info=True
+                f"Error sending welcome email to {instance.username}",
+                exc_info=True
             )
             raise ValueError(
                 "An error occurred while sending the welcome email"
