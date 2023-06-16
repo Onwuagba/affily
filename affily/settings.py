@@ -45,7 +45,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
-    'drf_api_logger',
+    "drf_api_logger",
     "authy",
     "drf_yasg",
     "notification",
@@ -106,7 +106,7 @@ DATABASES = {
 DRF_API_LOGGER_DATABASE = True
 DRF_LOGGER_QUEUE_MAX_SIZE = 100
 DRF_LOGGER_INTERVAL = 600
-DRF_API_LOGGER_EXCLUDE_KEYS = ['password', 'token', 'access', 'refresh']
+DRF_API_LOGGER_EXCLUDE_KEYS = ["password", "token", "access", "refresh"]
 DRF_API_LOGGER_SLOW_API_ABOVE = 200  # to identify slow API calls
 DRF_API_LOGGER_TIMEDELTA = 60  # representing UTC + 60 mins
 

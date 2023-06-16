@@ -3,11 +3,11 @@ import unittest
 from django.contrib.auth import authenticate, get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase
-from authy.generics import check_email_username
-
-from authy.validators import validate_phone_number
 from rest_framework import status
 from rest_framework.test import APIClient
+
+from authy.generics import check_email_username
+from authy.validators import validate_phone_number
 
 UserModel = get_user_model()
 

@@ -1,18 +1,18 @@
 import logging
 from base64 import urlsafe_b64decode
-from authy.generics import check_email_username
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView, UpdateAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
-from django.db.models import Q
 
 from authy.api_response import CustomAPIResponse
+from authy.generics import check_email_username
 from authy.models import CustomToken, UserAccount
 from authy.serializers import (
     ChangePasswordSerializer,

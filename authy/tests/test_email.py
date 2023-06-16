@@ -1,5 +1,7 @@
 import unittest
+
 from django.contrib.auth import get_user_model
+
 from authy.utilities.mail.send_mail import send_mail_now
 
 UserModel = get_user_model()
