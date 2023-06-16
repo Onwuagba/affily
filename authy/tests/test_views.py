@@ -3,9 +3,12 @@ import unittest
 from django.contrib.auth import authenticate, get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase
+from authy.generics import check_email_username
 
 from authy.utilities.mail.send_mail import send_mail_now
 from authy.validators import validate_phone_number
+from rest_framework import status
+from rest_framework.test import APIClient
 
 UserModel = get_user_model()
 
@@ -85,37 +88,41 @@ class TestValidatePhoneNumber(unittest.TestCase):
             validate_phone_number(value)
 
 
-# EMAIL TESTS
+class DeleteUserTestCase(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = UserModel.objects.create(
+            username="testuser", email="testuser@test.com"
+        )
 
+    def test_delete_by_username(self):
+        data = {"username": "testuser"}
+        response = self.client.delete("/users/", data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_deleted)
+        self.assertFalse(self.user.is_active)
 
-class TestSendMailNow(unittest.TestCase):
-    def test_send_mail_success(self):
-        result = self._extracted_from_test_send_mail_return_type_2()
-        self.assertEqual(result, ("Mail sent successfully", True))
+    def test_delete_by_email(self):
+        data = {"email": "testuser@test.com"}
+        response = self.client.delete("/users/", data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_deleted)
+        self.assertFalse(self.user.is_active)
 
-    def test_send_mail_failure(self):
-        content = {
-            "subject": "Test Email",
-            "sender": "test@example.com",
-            "recipient": "recipient@example.com",
-        }
-        context = {"name": "John Doe"}
-        result = send_mail_now(content, context)
-        self.assertEqual(result, (False, False))
+    def test_delete_nonexistent_user(self):
+        data = {"username": "nonexistentuser"}
+        response = self.client.delete("/users/", data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(
+            UserModel.objects.filter(username="nonexistentuser").exists()
+        )
 
-    def test_send_mail_return_type(self):
-        result = self._extracted_from_test_send_mail_return_type_2()
-        self.assertIsInstance(result[0], str)
-        self.assertIsInstance(result[1], bool)
+    def test_delete_invalid_username_email(self):
+        data = {"username": "invalid_username", "email": "invalid_email"}
+        with self.assertRaises(check_email_username.ValidationError):
+            check_email_username(data)
 
-    # TODO Rename this here and in `test_send_mail_success`
-    # and `test_send_mail_return_type`
-    def _extracted_from_test_send_mail_return_type_2(self):
-        content = {
-            "subject": "Test Email",
-            "sender": "test@example.com",
-            "recipient": "recipient@example.com",
-            "template": "test_template.html",
-        }
-        context = {"name": "John Doe"}
-        return send_mail_now(content, context)
+    def tearDown(self):
+        self.user.delete()

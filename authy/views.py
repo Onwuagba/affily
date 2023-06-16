@@ -1,5 +1,6 @@
 import logging
 from base64 import urlsafe_b64decode
+from authy.generics import check_email_username
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
@@ -7,8 +8,9 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView, UpdateAPIView
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
+from django.db.models import Q
 
 from authy.api_response import CustomAPIResponse
 from authy.models import CustomToken, UserAccount
@@ -149,7 +151,7 @@ class ForgotPasswordView(APIView):
 
         try:
             # check if email or username is in request
-            self.check_email_username(reset_data)
+            check_email_username(reset_data)
 
             change_serializer = self.serializer_class(data=reset_data)
             if change_serializer.is_valid(raise_exception=True):
@@ -265,7 +267,7 @@ class RegenerateEmailVerificationView(CreateAPIView):
 
         try:
             # check if email or username is in request
-            self.check_email_username(request.data)
+            check_email_username(request.data)
 
             change_serializer = self.serializer_class(
                 data=request.data, context={"request": request}
@@ -289,3 +291,39 @@ class RegenerateEmailVerificationView(CreateAPIView):
     def check_email_username(self, data):
         if not {"username", "email"}.intersection(map(str.lower, data.keys())):
             raise ValidationError("Email or Username is required")
+
+
+class DeleteAccountView(APIView):
+    # permission_classes = (IsAuthenticated,)
+    http_method_names = ["delete"]
+
+    def get_object(self, username=None, email=None):
+        model = get_user_model()
+
+        query = Q(username=username) | Q(email=email)
+        if user := model.objects.filter(query).first():
+            return user
+        else:
+            raise ValidationError("Email or Username not found.")
+
+    def delete(self, request, **kwargs):
+        email = request.data.get("email")
+        username = request.data.get("username")
+
+        try:
+            check_email_username(request.data)
+
+            obj = self.get_object(username, email)
+            obj.is_deleted = True
+            obj.is_active = False
+            obj.save()
+            message = "Account deleted successfully"
+            code_status = "success"
+            status_code = status.HTTP_200_OK
+        except Exception as e:
+            message = e.args[0]
+            code_status = "failed"
+            status_code = status.HTTP_400_BAD_REQUEST
+
+        response = CustomAPIResponse(message, status_code, code_status)
+        return response.send()

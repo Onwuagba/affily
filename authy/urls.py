@@ -3,6 +3,7 @@ from django.urls import path
 from authy.views import (
     ChangePasswordView,
     ConfirmEmailView,
+    DeleteAccountView,
     ForgotPasswordView,
     Home,
     RegenerateEmailVerificationView,
@@ -27,6 +28,7 @@ urlpatterns = [
         ChangePasswordView.as_view(),
         name="change_password",
     ),
+    path("delete_account", DeleteAccountView.as_view()),
     # path("validate_token/", TokenVerifyView.as_view(), name="validate"),
     # path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     # path("refresh/", RefreshPage.as_view()),
