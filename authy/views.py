@@ -294,7 +294,7 @@ class RegenerateEmailVerificationView(CreateAPIView):
 
 
 class DeleteAccountView(APIView):
-    # permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated,)
     http_method_names = ["delete"]
 
     def get_object(self, username=None, email=None):

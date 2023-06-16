@@ -5,7 +5,6 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 from authy.generics import check_email_username
 
-from authy.utilities.mail.send_mail import send_mail_now
 from authy.validators import validate_phone_number
 from rest_framework import status
 from rest_framework.test import APIClient
