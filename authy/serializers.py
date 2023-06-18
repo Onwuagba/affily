@@ -9,7 +9,10 @@ from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 from rest_framework import serializers
+from rest_framework.exceptions import AuthenticationFailed
+from rest_framework_simplejwt import serializers as jwt_serializers
 
+from authy.backends.custom_auth_backend import CustomBackend
 from authy.models import CustomToken, UserAccount
 from authy.signals import user_created
 from authy.utilities.constants import admin_support_sender, email_sender
@@ -78,6 +81,7 @@ class ConfirmEmailSerializer(serializers.Serializer):
                 )
             except Exception as e:
                 transaction.set_rollback(True)
+                logger.error(f"Error confirming email for {instance.user}: {e}")
                 raise serializers.ValidationError(
                     "Error occurred confirming your email. Please try again later."
                 ) from e
@@ -117,6 +121,7 @@ class ForgotPasswordSerializer(serializers.Serializer):
             try:
                 user = UserDb.objects.get(username=data.get("username"))
             except UserDb.DoesNotExist as e:
+                logger.error(f"Exception in forgot password: {e}", exc_info=1)
                 raise serializers.ValidationError(
                     "No account found with this email or username"
                 ) from e
@@ -136,7 +141,7 @@ class ForgotPasswordSerializer(serializers.Serializer):
         reset_url = request.build_absolute_uri(f"new_password/{uid}/{token}")
         print(reset_url)
         context = {"username": user.username, "url": reset_url}
-        logger.info(f"context for forgot email to be sent: {context}")
+        logger.info(f"context for forgot email to be sent: {user.username}")
 
         # call celery
         send_notif_email.delay(email_content, context)
@@ -220,3 +225,49 @@ class RegenerateEmailVerificationSerializer(serializers.Serializer):
         )
 
         return user
+
+
+class CustomTokenSerializer(jwt_serializers.TokenObtainPairSerializer):
+    email = serializers.EmailField(required=False)
+    username = serializers.CharField(required=False)
+    password = serializers.CharField(required=True)
+
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token["username"] = user.username
+        return token
+
+    def validate(self, attrs):
+        username = attrs.get("username")
+        email = attrs.get("email")
+        password = attrs.get("password")
+
+        if not (username or email):
+            raise serializers.ValidationError("Username/Email is required")
+        if not password:
+            raise serializers.ValidationError("Password is required")
+
+        authenticate_kwargs = {
+            self.username_field: username or email,
+            "password": password,
+        }
+
+        try:
+            authenticate_kwargs["request"] = self.context["request"]
+            user = CustomBackend.authenticate(self, **authenticate_kwargs)
+            if not user or not user.is_active:
+                raise AuthenticationFailed("No account found with this credential")
+        except Exception as e:
+            logger.error(
+                f"Authentication failed for **{username or email}** with error: {e}"
+            )
+            raise ValidationError(e) from e
+
+        return super().validate(attrs)
+
+    @property
+    def fields(self):
+        fields = super().fields
+        fields["username"].required = False
+        return fields

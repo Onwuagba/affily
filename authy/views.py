@@ -9,7 +9,10 @@ from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import CreateAPIView, UpdateAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt import views as jwt_views
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 
 from authy.api_response import CustomAPIResponse
 from authy.generics import check_email_username
@@ -17,6 +20,7 @@ from authy.models import CustomToken, UserAccount
 from authy.serializers import (
     ChangePasswordSerializer,
     ConfirmEmailSerializer,
+    CustomTokenSerializer,
     ForgotPasswordSerializer,
     RegenerateEmailVerificationSerializer,
     RegistrationSerializer,
@@ -38,7 +42,6 @@ class Home(APIView):
         return response.send()
 
 
-# Create your views here.
 class RegisterAPIView(CreateAPIView):
     permission_classes = (AllowAny,)
     serializer_class = RegistrationSerializer
@@ -194,6 +197,8 @@ class ForgotPasswordView(APIView):
 
 
 class ChangePasswordView(UpdateAPIView):
+    """chnage password after clicking forgot password"""
+
     permission_classes = (AllowAny,)
     serializer_class = ChangePasswordSerializer
     http_method_names = ["patch"]
@@ -324,6 +329,37 @@ class DeleteAccountView(APIView):
             message = e.args[0]
             code_status = "failed"
             status_code = status.HTTP_400_BAD_REQUEST
+
+        response = CustomAPIResponse(message, status_code, code_status)
+        return response.send()
+
+
+# customise JWT login payload to accept username or email
+class CustomTokenView(jwt_views.TokenObtainPairView):
+    serializer_class = CustomTokenSerializer
+    token_obtain_pair = jwt_views.TokenObtainPairView.as_view()
+
+    def post(self, request, *args, **kwargs):
+        try:
+            serializer = self.serializer_class(
+                data=request.data,
+                context={
+                    "request": self.request,
+                },
+            )
+            serializer.is_valid(raise_exception=True)
+            return Response(serializer._validated_data, status=status.HTTP_200_OK)
+
+        except TokenError as ex:
+            raise InvalidToken(ex.args[0]) from ex
+        except (ValidationError, Exception) as exc:
+            message = exc.args[0]
+            code_status = "failed"
+            status_code = (
+                status.HTTP_401_UNAUTHORIZED
+                if isinstance(exc, ValidationError)
+                else status.HTTP_400_BAD_REQUEST
+            )
 
         response = CustomAPIResponse(message, status_code, code_status)
         return response.send()
