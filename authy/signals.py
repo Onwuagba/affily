@@ -33,7 +33,7 @@ def send_email_on_user_creation(sender, instance, created, request, **kwargs):
             )
 
             # obj is being updated.
-            # Called from regenerate email verification
+            # Called from regenerate email verification endpoint
             if not new_obj:
                 token.created = timezone.localtime()
                 token.key = tokenModel.generate_key()

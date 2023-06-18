@@ -6,7 +6,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import status
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.generics import CreateAPIView, UpdateAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -25,6 +25,8 @@ from authy.serializers import (
     RegenerateEmailVerificationSerializer,
     RegistrationSerializer,
 )
+from authy.utilities.constants import admin_support_sender, email_sender
+from authy.utilities.tasks import send_notif_email
 
 logger = logging.getLogger("app")
 
@@ -293,45 +295,70 @@ class RegenerateEmailVerificationView(CreateAPIView):
         response = CustomAPIResponse(message, status_code, code_status)
         return response.send()
 
-    def check_email_username(self, data):
-        if not {"username", "email"}.intersection(map(str.lower, data.keys())):
-            raise ValidationError("Email or Username is required")
-
 
 class DeleteAccountView(APIView):
     permission_classes = (IsAuthenticated,)
     http_method_names = ["delete"]
 
-    def get_object(self, username=None, email=None):
+    def get_object(self, request, username=None, email=None):
         model = get_user_model()
 
         query = Q(username=username) | Q(email=email)
         if user := model.objects.filter(query).first():
+            if request.user != user:
+                raise PermissionDenied("Access Denied.")
             return user
         else:
             raise ValidationError("Email or Username not found.")
 
     def delete(self, request, **kwargs):
+        """
+        Deactivate account
+        """
         email = request.data.get("email")
         username = request.data.get("username")
 
         try:
             check_email_username(request.data)
 
-            obj = self.get_object(username, email)
+            obj = self.get_object(request, username, email)
             obj.is_deleted = True
             obj.is_active = False
             obj.save()
             message = "Account deleted successfully"
             code_status = "success"
             status_code = status.HTTP_200_OK
-        except Exception as e:
+
+            self.send_mail(obj)
+        except (PermissionDenied, Exception) as e:
             message = e.args[0]
             code_status = "failed"
-            status_code = status.HTTP_400_BAD_REQUEST
-
+            status_code = (
+                status.HTTP_403_FORBIDDEN
+                if isinstance(e, PermissionDenied)
+                else status.HTTP_400_BAD_REQUEST
+            )
         response = CustomAPIResponse(message, status_code, code_status)
         return response.send()
+
+    def send_mail(self, instance):
+        email_content = {
+            "subject": "Your Affily account has been deleted ✖",
+            "sender": email_sender,
+            "recipient": instance.email,
+            "template": "delete-account.html",
+        }
+        context = {
+            "username": instance.username,
+            "email": instance.email,
+            "admin_email": admin_support_sender,
+        }
+        logger.info(
+            f"context for email called from delete account endpoint: {context}"
+        )
+
+        # call celery
+        send_notif_email.delay(email_content, context)
 
 
 # customise JWT login payload to accept username or email
