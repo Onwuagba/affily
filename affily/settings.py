@@ -45,16 +45,23 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    
     # 3rd party
     "drf_yasg",
+    'django_otp',
+    'django_otp.plugins.otp_totp',
+    
     # rest api
     "rest_framework",
     "rest_framework_simplejwt.token_blacklist",
+    
     # logs
     "drf_api_logger",
-    # apps
+    
+    # internal apps
     "authy",
     "notification",
+    "two_fa",
 ]
 
 MIDDLEWARE = [
