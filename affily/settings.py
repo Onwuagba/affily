@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/3.0/ref/settings/
 """
 
 import datetime
+import logging
 import os
 
 from dotenv import load_dotenv
@@ -44,10 +45,15 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "rest_framework",
-    "drf_api_logger",
-    "authy",
+    # 3rd party
     "drf_yasg",
+    # rest api
+    "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",
+    # logs
+    "drf_api_logger",
+    # apps
+    "authy",
     "notification",
 ]
 
@@ -60,6 +66,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "drf_api_logger.middleware.api_logger_middleware.APILoggerMiddleware",
+    "authy.middleware.admin_middleware.AutoLogoutMiddleware",
 ]
 
 ROOT_URLCONF = "affily.urls"
@@ -106,7 +113,13 @@ DATABASES = {
 DRF_API_LOGGER_DATABASE = True
 DRF_LOGGER_QUEUE_MAX_SIZE = 50
 DRF_LOGGER_INTERVAL = 200
-DRF_API_LOGGER_EXCLUDE_KEYS = ["password", "token", "access", "refresh"]
+DRF_API_LOGGER_EXCLUDE_KEYS = [
+    "password",
+    "confirm_password",
+    "token",
+    "access",
+    "refresh",
+]
 DRF_API_LOGGER_SLOW_API_ABOVE = 200  # to identify slow API calls
 DRF_API_LOGGER_TIMEDELTA = 60  # representing UTC + 60 mins
 
@@ -183,8 +196,8 @@ SIMPLE_JWT = {
 # Rest Framework settings
 REST_FRAMEWORK = {
     "NON_FIELD_ERRORS_KEY": "error",
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
-    "PAGE_SIZE": 10,
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
+    "PAGE_SIZE": 15,
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.AllowAny",),
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -205,13 +218,36 @@ LOG_DIR = os.path.join(BASE_DIR, "logs")
 if not os.path.exists(LOG_DIR):
     os.mkdir(LOG_DIR)
 
+
+class NonEmptyLogFilter(logging.Filter):
+    def filter(self, record):
+        """
+        Logging filter to prevent the generation of empty log files for
+        TimedRotatingFileHandler handlers
+
+        Args:
+            record: The record to be filtered.
+
+        Returns:
+            bool: True if the record's message is not empty after
+            stripping whitespace, False otherwise.
+        """
+        return bool(record.getMessage().strip())
+
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
+    "filters": {
+        "non_empty_logs": {
+            "()": NonEmptyLogFilter,
+        }
+    },
     "formatters": {
         "verbose": {
             "format": (
-                "[%(asctime)s]- %(levelname)s - [%(name)s:%(lineno)s] - %(message)s"
+                "[%(asctime)s] %(levelname)s [%(name)s-%(lineno)s] %(module)s "
+                "%(process)d %(thread)d %(message)s"
             ),
             "datefmt": "%d/%b/%Y %H:%M:%S",
         },
@@ -220,7 +256,6 @@ LOGGING = {
         "console": {
             "class": "logging.StreamHandler",
             "formatter": "verbose",
-            "level": "DEBUG",
         },
         "file": {
             "class": "logging.FileHandler",
@@ -235,6 +270,7 @@ LOGGING = {
             "backupCount": 10,
             "formatter": "verbose",
             "level": "ERROR",
+            "filters": ["non_empty_logs"],
         },
         "info_file": {
             "class": "logging.handlers.TimedRotatingFileHandler",
@@ -243,16 +279,20 @@ LOGGING = {
             "backupCount": 10,
             "formatter": "verbose",
             "level": "INFO",
+            "filters": ["non_empty_logs"],
         },
     },
     "loggers": {
         "app": {
-            "handlers": ["console", "error_file", "info_file", "file"],
+            "handlers": ["console", "error_file", "info_file"],
+            "level": "INFO",
+        },
+        "app_debug": {
+            "handlers": ["console", "file"],
             "level": "DEBUG",
         },
     },
 }
-
 # Internationalization
 # https://docs.djangoproject.com/en/3.0/topics/i18n/
 

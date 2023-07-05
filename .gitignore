@@ -21,3 +21,4 @@ venv/
 media/
 logs/**
 coverage.xml
+migrations/

@@ -1,7 +1,7 @@
 import logging
 from base64 import urlsafe_b64decode
 
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, logout
 from django.contrib.auth.tokens import default_token_generator
 from django.db.models import Q
 from django.utils import timezone
@@ -13,6 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt import views as jwt_views
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from authy.api_response import CustomAPIResponse
 from authy.generics import check_email_username
@@ -22,8 +23,10 @@ from authy.serializers import (
     ConfirmEmailSerializer,
     CustomTokenSerializer,
     ForgotPasswordSerializer,
+    LogoutSerializer,
     RegenerateEmailVerificationSerializer,
     RegistrationSerializer,
+    ResetPasswordSerializer,
 )
 from authy.utilities.constants import admin_support_sender, email_sender
 from authy.utilities.tasks import send_notif_email
@@ -32,13 +35,13 @@ logger = logging.getLogger("app")
 
 
 class Home(APIView):
-    # permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticated,)
 
     def get(self, request, *args):
         user_name = request.user
-        message = f"Welcome {user_name}"
-        status_code = status.HTTP_400_BAD_REQUEST
-        code_status = "failed"
+        message = f"Welcome {user_name.first_name}"
+        status_code = status.HTTP_200_OK
+        code_status = "success"
 
         response = CustomAPIResponse(message, status_code, code_status)
         return response.send()
@@ -144,7 +147,7 @@ class ForgotPasswordView(APIView):
     permission_classes = (AllowAny,)
     serializer_class = ForgotPasswordSerializer
 
-    def get(self, request, **kwargs):
+    def post(self, request, **kwargs):
         """
         Params:
         - Email/Username
@@ -387,6 +390,70 @@ class CustomTokenView(jwt_views.TokenObtainPairView):
                 if isinstance(exc, ValidationError)
                 else status.HTTP_400_BAD_REQUEST
             )
+
+        response = CustomAPIResponse(message, status_code, code_status)
+        return response.send()
+
+
+class LogoutView(APIView):
+    permission_classes = (IsAuthenticated,)
+    serializer_class = LogoutSerializer
+
+    def post(self, request):
+        try:
+            serializer = self.serializer_class(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            refresh_token = request.data["refresh_token"]
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            logout(request)
+            request.session.flush()
+
+            message = "Logout successful"
+            code_status = "success"
+            status_code = status.HTTP_205_RESET_CONTENT
+
+        except Exception as e:
+            message = e.args[0]
+            code_status = "failed"
+            status_code = status.HTTP_400_BAD_REQUEST
+
+        response = CustomAPIResponse(message, status_code, code_status)
+        return response.send()
+
+
+class ResetPasswordView(UpdateAPIView):
+    """
+    Allow authenticated user to change password
+
+    Accepts - password, confirm_password, old_password
+    """
+
+    permission_classes = (IsAuthenticated,)
+    serializer_class = ResetPasswordSerializer
+
+    def get_object(self):
+        return self.request.user
+
+    def patch(self, request, **kwargs):
+        user = self.get_object()
+        change_data = request.data
+        # change_data['user'] = request.user
+        change_serializer = self.serializer_class(user, data=change_data)
+        try:
+            if change_serializer.is_valid(raise_exception=True):
+                change_serializer.save()
+                message = "Password reset completed."
+                code_status = "success"
+                status_code = status.HTTP_200_OK
+            else:
+                message = change_serializer.errors
+                code_status = "failed"
+                status_code = status.HTTP_400_BAD_REQUEST
+        except Exception as e:
+            message = e.args[0]
+            code_status = "failed"
+            status_code = status.HTTP_400_BAD_REQUEST
 
         response = CustomAPIResponse(message, status_code, code_status)
         return response.send()

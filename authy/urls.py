@@ -1,5 +1,5 @@
 from django.urls import path
-from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 
 from authy.views import (
     ChangePasswordView,
@@ -8,8 +8,10 @@ from authy.views import (
     DeleteAccountView,
     ForgotPasswordView,
     Home,
+    LogoutView,
     RegenerateEmailVerificationView,
     RegisterAPIView,
+    ResetPasswordView,
 )
 
 app_name = "auth"
@@ -23,8 +25,8 @@ urlpatterns = [
         ConfirmEmailView.as_view(),
         name="confirm_email",
     ),
-    path("forgot_password", ForgotPasswordView.as_view()),
-    path("regenerate_email", RegenerateEmailVerificationView.as_view()),
+    path("forgot_password/", ForgotPasswordView.as_view()),
+    path("regenerate_email/", RegenerateEmailVerificationView.as_view()),
     path(
         "new_password/<str:uid>/<str:token>",
         ChangePasswordView.as_view(),
@@ -33,7 +35,7 @@ urlpatterns = [
     path("delete_account", DeleteAccountView.as_view()),
     path("login/", CustomTokenView.as_view(), name="token_obtain_pair"),
     path("refresh/", TokenRefreshView.as_view(), name="token_refresh"),
-    # path("validate_token/", TokenVerifyView.as_view(), name="validate"),
-    # path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
-    # path("refresh/", RefreshPage.as_view()),
+    path("validate_token/", TokenVerifyView.as_view(), name="validate"),
+    path("logout/", LogoutView.as_view(), name="logout"),
+    path("reset_password/", ResetPasswordView.as_view(), name="logout"),
 ]

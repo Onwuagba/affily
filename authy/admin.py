@@ -11,6 +11,7 @@ from authy.signals import user_created
 
 @admin.register(UserAccount)
 class CustomAdmin(UserAdmin):
+    ordering = ("-updated_at",)
     # define the fields to show in the list display for staff users
     staff_fields = (
         "username",
@@ -147,9 +148,16 @@ class CustomAdmin(UserAdmin):
         return super().get_fieldsets(request, obj)
 
     def save_model(self, request: Any, obj: Any, form: Any, change: Any) -> None:
-        # Check if the user is being created
+        """
+        Saves the model and emits a signal if the user is being created.
+
+        :param obj: The object to save.
+        :param form: The form used to validate and save the object.
+        :param change: A boolean indicating if the object is being updated or created
+        :return: None.
+        """
         if not change:
-            # fire signal only when user is created from Django Admin
+            # Check if the user is being created
             super().save_model(request, obj, form, change)
 
             # Emit the user_created signal

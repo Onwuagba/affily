@@ -33,7 +33,19 @@ class RegistrationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserAccount
-        exclude = ["regToken"]
+        exclude = [
+            "regToken",
+        ]
+        read_only_fields = [
+            "groups",
+            "user_permissions",
+            "is_superuser",
+            "is_staff",
+            "is_deleted",
+            "is_active",
+            "last_login",
+            "date_joined",
+        ]
 
     def validate(self, data):
         if not data.get("password") or not data.get("confirm_password"):
@@ -79,13 +91,14 @@ class ConfirmEmailSerializer(serializers.Serializer):
                 UserAccount.objects.filter(uid=instance.user.uid).update(
                     is_active=True, regToken=instance.key
                 )
+
+                self.welcome_mail(instance)
             except Exception as e:
                 transaction.set_rollback(True)
                 logger.error(f"Error confirming email for {instance.user}: {e}")
                 raise serializers.ValidationError(
                     "Error occurred confirming your email. Please try again later."
                 ) from e
-            self.welcome_mail(instance)
         return instance
 
     def welcome_mail(self, instance):
@@ -121,7 +134,7 @@ class ForgotPasswordSerializer(serializers.Serializer):
             try:
                 user = UserDb.objects.get(username=data.get("username"))
             except UserDb.DoesNotExist as e:
-                logger.error(f"Exception in forgot password: {e}", exc_info=1)
+                logger.error(f"Exception in forgot password: {e}")
                 raise serializers.ValidationError(
                     "No account found with this email or username"
                 ) from e
@@ -214,8 +227,10 @@ class RegenerateEmailVerificationSerializer(serializers.Serializer):
                     "No account found with this email or username"
                 ) from e
 
-        if user and user.is_active is True:
+        if user and user.is_active is True and user.is_deleted is False:
             raise serializers.ValidationError("Account validated already")
+        if user.is_deleted is True:
+            raise serializers.ValidationError("No account found.")
 
         user_created.send(
             sender=UserAccountModel,
@@ -238,7 +253,31 @@ class CustomTokenSerializer(jwt_serializers.TokenObtainPairSerializer):
         token["username"] = user.username
         return token
 
+    @property
+    def fields(self):
+        fields = super().fields
+        fields["username"].required = False
+        return fields
+
     def validate(self, attrs):
+        """
+        Validate the input attributes.
+
+        Args:
+            attrs (dict): A dictionary containing the input attributes.
+                - 'username' (str): The username.
+                - 'email' (str): The email.
+                - 'password' (str): The password.
+
+        Raises:
+            serializers.ValidationError: If 'username' or 'email' is not provided.
+            serializers.ValidationError: If 'password' is not provided.
+            AuthenticationFailed: If no account is found with the given credentials.
+            ValidationError: If authentication fails.
+
+        Returns:
+            dict: The validated attributes.
+        """
         username = attrs.get("username")
         email = attrs.get("email")
         password = attrs.get("password")
@@ -264,10 +303,65 @@ class CustomTokenSerializer(jwt_serializers.TokenObtainPairSerializer):
             )
             raise ValidationError(e) from e
 
-        return super().validate(attrs)
+        token = self.get_token(user)
+        return {
+            "access": str(token.access_token),
+            "refresh": str(token),
+        }
 
-    @property
-    def fields(self):
-        fields = super().fields
-        fields["username"].required = False
-        return fields
+
+class ResetPasswordSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(
+        max_length=128,
+        min_length=8,
+        write_only=True,
+        required=True,
+        validators=[validate_password],
+    )
+    confirm_password = serializers.CharField(write_only=True, required=True)
+    old_password = serializers.CharField(write_only=True, required=True)
+
+    class Meta:
+        model = UserAccount
+        fields = ("old_password", "password", "confirm_password")
+
+    def validate(self, data):
+        error = {}
+        user = self.instance
+
+        if not data.get("password") or not data.get("confirm_password"):
+            error["password"] = "Please enter a password and confirm it."
+        if data.get("password") != data.get("confirm_password"):
+            error["password"] = "Your passwords do not match"
+        if not user.check_password(data.get("old_password")):
+            error["password"] = "Your old password is not valid"
+        if data.get("password") == data.get("old_password"):
+            error["password"] = "New password cannot be same as old password"
+
+        if error:
+            raise serializers.ValidationError(error)
+
+        data.pop("old_password")
+        data.pop("confirm_password")
+        return data
+
+    def update(self, instance, validated_data):
+        instance.set_password(validated_data["password"])
+        instance.save()
+
+        email_content = {
+            "subject": "Your password was recently changed",
+            "sender": email_sender,
+            "recipient": instance.email,
+            "template": "password_changed.html",
+        }
+        context = {"username": instance.first_name}
+        logger.info(f"context for reset password email to be sent: {context}")
+
+        send_notif_email.delay(email_content, context)
+
+        return instance
+
+
+class LogoutSerializer(serializers.Serializer):
+    refresh_token = serializers.CharField()

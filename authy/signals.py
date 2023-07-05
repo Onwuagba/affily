@@ -52,9 +52,7 @@ def send_email_on_user_creation(sender, instance, created, request, **kwargs):
             print(context)
             send_email_confirmation_mail.delay(email_content, context)
         except Exception as e:
-            logger.error(
-                f"Error sending welcome email to {instance.username}", exc_info=True
-            )
+            logger.error(f"Error sending welcome email to {instance.username}: {e}")
             raise ValueError(
                 "An error occurred while sending the welcome email"
             ) from e
@@ -82,7 +80,7 @@ def send_email_on_user_creation(sender, instance, created, request, **kwargs):
 #             send_email_confirmation_mail.delay(email_content, context)
 #         except Exception as e:
 #             logger.error(
-#                 f"Error sending welcome email to {instance.username}", exc_info=True
+#                 f"Error sending welcome email to {instance.username}: {e}"
 #             )
 #             raise ValueError(
 #                 "An error occurred while sending the welcome email"
