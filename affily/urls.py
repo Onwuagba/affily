@@ -41,6 +41,7 @@ base_api_url = os.getenv("BASE_API_URL")
 urlpatterns = [
     path("admin/", admin.site.urls),
     path(f"{base_api_url}/auth/", include("authy.urls")),
+    path(f"{base_api_url}/totp/", include("two_fa.urls")),
     path(
         f"{base_api_url}/doc/",
         schema_view.with_ui("swagger", cache_timeout=0),

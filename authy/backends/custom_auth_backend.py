@@ -22,5 +22,7 @@ class CustomBackend(ModelBackend):
         user = None
 
         with contextlib.suppress(UserModel.DoesNotExist):
-            user = UserModel.objects.get(Q(username=username) | Q(email=username))
+            user = UserModel.objects.get(
+                Q(username=username) | Q(email=username), is_deleted=False
+            )
         return user if user and user.check_password(password) else None

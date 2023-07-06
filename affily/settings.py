@@ -45,19 +45,15 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    
     # 3rd party
     "drf_yasg",
-    'django_otp',
-    'django_otp.plugins.otp_totp',
-    
+    "django_otp",
+    "django_otp.plugins.otp_totp",
     # rest api
     "rest_framework",
     "rest_framework_simplejwt.token_blacklist",
-    
     # logs
     "drf_api_logger",
-    
     # internal apps
     "authy",
     "notification",
@@ -216,6 +212,10 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_THROTTLE_RATES": {"anon": "150/day", "user": "400/day"},
 }
+
+# OTP config
+OTP_ADMIN_HIDE_SENSITIVE_DATA = False
+OTP_TOTP_ISSUER = "Affily"
 
 
 # logging configuration

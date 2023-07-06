@@ -17,6 +17,7 @@ from authy.models import CustomToken, UserAccount
 from authy.signals import user_created
 from authy.utilities.constants import admin_support_sender, email_sender
 from authy.utilities.tasks import send_notif_email
+from django.db.models import Q
 
 logger = logging.getLogger("app")
 
@@ -127,17 +128,18 @@ class ForgotPasswordSerializer(serializers.Serializer):
     username = serializers.CharField(required=False)
 
     def validate(self, data):
-        UserDb = get_user_model()
+        UserAccountModel = get_user_model()
         try:
-            user = UserDb.objects.get(email=data.get("email"))
-        except (ValidationError, UserDb.DoesNotExist):
-            try:
-                user = UserDb.objects.get(username=data.get("username"))
-            except UserDb.DoesNotExist as e:
-                logger.error(f"Exception in forgot password: {e}")
-                raise serializers.ValidationError(
-                    "No account found with this email or username"
-                ) from e
+            user = UserAccountModel.objects.get(
+                Q(username=data.get("username")) | Q(email=data.get("email")),
+                is_deleted=False,
+            )
+        except (ValidationError, UserAccountModel.DoesNotExist) as e:
+            logger.error(f"Exception in forgot password: {e}")
+            raise serializers.ValidationError(
+                "No account found with this email or username"
+            ) from e
+
         return user
 
     def create_token_send_email(self, request, *args):
@@ -218,19 +220,17 @@ class RegenerateEmailVerificationSerializer(serializers.Serializer):
     def validate(self, data):
         UserAccountModel = get_user_model()
         try:
-            user = UserAccountModel.objects.get(email=data.get("email"))
-        except (ValidationError, UserAccountModel.DoesNotExist):
-            try:
-                user = UserAccountModel.objects.get(username=data.get("username"))
-            except UserAccountModel.DoesNotExist as e:
-                raise serializers.ValidationError(
-                    "No account found with this email or username"
-                ) from e
+            user = UserAccountModel.objects.get(
+                Q(username=data.get("username")) | Q(email=data.get("email")),
+                is_deleted=False,
+            )
+        except (ValidationError, UserAccountModel.DoesNotExist) as e:
+            raise serializers.ValidationError(
+                "No account found with this email or username"
+            ) from e
 
-        if user and user.is_active is True and user.is_deleted is False:
+        if user and user.is_active is True and not user.is_deleted:
             raise serializers.ValidationError("Account validated already")
-        if user.is_deleted is True:
-            raise serializers.ValidationError("No account found.")
 
         user_created.send(
             sender=UserAccountModel,
@@ -281,6 +281,7 @@ class CustomTokenSerializer(jwt_serializers.TokenObtainPairSerializer):
         username = attrs.get("username")
         email = attrs.get("email")
         password = attrs.get("password")
+        req = self.context["request"]
 
         if not (username or email):
             raise serializers.ValidationError("Username/Email is required")
@@ -293,10 +294,20 @@ class CustomTokenSerializer(jwt_serializers.TokenObtainPairSerializer):
         }
 
         try:
-            authenticate_kwargs["request"] = self.context["request"]
+            authenticate_kwargs["request"] = req
             user = CustomBackend.authenticate(self, **authenticate_kwargs)
-            if not user or not user.is_active:
+            if not user or user.is_deleted:
                 raise AuthenticationFailed("No account found with this credential")
+
+            if not user.is_active:
+                data = {"email": email} if email else {"username": username}
+                RegenerateEmailVerificationSerializer(
+                    context={"request": req}
+                ).validate(data)
+                raise AuthenticationFailed(
+                    "Account not verified yet. Check email to complete verification"
+                )
+
         except Exception as e:
             logger.error(
                 f"Authentication failed for **{username or email}** with error: {e}"

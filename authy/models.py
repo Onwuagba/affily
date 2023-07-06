@@ -1,3 +1,4 @@
+import contextlib
 import datetime
 import uuid
 
@@ -5,12 +6,11 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.db import IntegrityError, models, transaction
 from django.utils import timezone
+from django.contrib.auth.models import PermissionsMixin
 from django.utils.translation import gettext_lazy as _
 from rest_framework.authtoken.models import Token
 
 from authy.validators import validate_phone_number
-
-# Create your models here.
 
 
 class BaseModel(models.Model):
@@ -56,7 +56,7 @@ class UserManager(BaseUserManager):
         return self.create_user(email, username, password, **extra_fields)
 
 
-class UserAccount(AbstractUser, BaseModel):
+class UserAccount(AbstractUser, PermissionsMixin, BaseModel):
     uid = models.UUIDField(
         default=uuid.uuid4, editable=False, unique=True, primary_key=True
     )
@@ -124,7 +124,7 @@ class CustomToken(Token):
     def save(self, *args, **kwargs):
         if self._state.adding:
             while True:
-                try:
+                with contextlib.suppress(IntegrityError):
                     with transaction.atomic():
                         if not self.created:
                             self.created = timezone.localtime()
@@ -133,8 +133,5 @@ class CustomToken(Token):
                         self.expiry_date = self.create_expiry_date(self.created)
                         super(Token, self).save(*args, **kwargs)
                         break  # Exit the loop if the expiry is set successfully
-                except IntegrityError:
-                    pass  # Retry the creation of the expiry time
-
         else:
             super(Token, self).save(*args, **kwargs)
