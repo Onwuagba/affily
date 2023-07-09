@@ -17,6 +17,7 @@ from rest_framework_simplejwt import serializers as jwt_serializers
 
 from affily.settings import AXES_COOLOFF_TIME, AXES_FAILURE_LIMIT
 from authy.backends.custom_auth_backend import CustomBackend
+from authy.exceptions import AccountLocked
 from authy.models import CustomToken, UserAccount
 from authy.signals import user_created
 from authy.utilities.constants import admin_support_sender, email_sender
@@ -289,8 +290,8 @@ class CustomTokenSerializer(jwt_serializers.TokenObtainPairSerializer):
         }
 
         try:
-            authenticate_kwargs["request"] = req
-            user = CustomBackend.authenticate(self, **authenticate_kwargs)
+            # authenticate_kwargs["request"] = req
+            user = CustomBackend().authenticate(self, **authenticate_kwargs)
             if not user or user.is_deleted:
                 raise AuthenticationFailed("No account found with this credential")
 
@@ -306,7 +307,7 @@ class CustomTokenSerializer(jwt_serializers.TokenObtainPairSerializer):
             # check axes for locked out user
             check_lockout, check_lockout_msg = self.check_lockout(req, user)
             if not check_lockout:
-                raise AuthenticationFailed(check_lockout_msg)
+                raise AccountLocked(check_lockout_msg)
             elif check_lockout_msg:
                 # workaround for axes_reset_on_success
                 # Wasn't working from settings.py
@@ -322,6 +323,9 @@ class CustomTokenSerializer(jwt_serializers.TokenObtainPairSerializer):
             logger.error(
                 f"Authentication failed for **{username or email}** with error: {e}"
             )
+
+            if isinstance(e, AccountLocked):
+                raise
             raise ValidationError(e) from e
 
         return self.return_token(user)
@@ -362,7 +366,9 @@ class CustomTokenSerializer(jwt_serializers.TokenObtainPairSerializer):
             if remaining_time.total_seconds() > 0:
                 return (
                     False,
-                    f"Account locked. Try again after {remaining_time.total_seconds()} seconds",
+                    (
+                    "Account locked."
+                    f"Try again after {int(remaining_time.total_seconds())} seconds"),
                 )
 
         return (

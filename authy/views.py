@@ -16,6 +16,7 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from authy.api_response import CustomAPIResponse
+from authy.exceptions import AccountLocked
 from authy.generics import check_email_username
 from authy.models import CustomToken, UserAccount
 from authy.serializers import (
@@ -380,15 +381,16 @@ class CustomTokenView(jwt_views.TokenObtainPairView):
             )
             serializer.is_valid(raise_exception=True)
             return Response(serializer._validated_data, status=status.HTTP_200_OK)
-
         except TokenError as ex:
             raise InvalidToken(ex.args[0]) from ex
-        except (ValidationError, Exception) as exc:
+        except (ValidationError, AccountLocked, Exception) as exc:
             message = exc.args[0]
             code_status = "failed"
             status_code = (
                 status.HTTP_401_UNAUTHORIZED
                 if isinstance(exc, ValidationError)
+                else status.HTTP_423_LOCKED
+                if isinstance(exc, AccountLocked)
                 else status.HTTP_400_BAD_REQUEST
             )
 
