@@ -1,5 +1,6 @@
 import contextlib
 
+from axes.signals import user_login_failed
 from django.contrib.auth import get_user_model
 from django.contrib.auth.backends import ModelBackend
 from django.db.models import Q
@@ -25,4 +26,13 @@ class CustomBackend(ModelBackend):
             user = UserModel.objects.get(
                 Q(username=username) | Q(email=username), is_deleted=False
             )
-        return user if user and user.check_password(password) else None
+        if user and user.check_password(password):
+            return user
+        else:
+            # Send failure signal to AxesBackend
+            user_login_failed.send(
+                sender=UserModel,
+                request=request,
+                credentials={"username": username},
+            )
+        return None

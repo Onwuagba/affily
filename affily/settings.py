@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "drf_yasg",
     "django_otp",
     "django_otp.plugins.otp_totp",
+    "axes",
     # rest api
     "rest_framework",
     "rest_framework_simplejwt.token_blacklist",
@@ -70,6 +71,8 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "drf_api_logger.middleware.api_logger_middleware.APILoggerMiddleware",
     "authy.middleware.admin_middleware.AutoLogoutMiddleware",
+    # AxesMiddleware should be the last middleware in the MIDDLEWARE list.
+    "axes.middleware.AxesMiddleware",
 ]
 
 ROOT_URLCONF = "affily.urls"
@@ -180,6 +183,8 @@ AUTH_USER_MODEL = "authy.UserAccount"
 PASSWORD_RESET_TIMEOUT = 900
 
 AUTHENTICATION_BACKENDS = [
+    # AxesStandaloneBackend should be the first backend in the AUTHENTICATION_BACKENDS list.
+    "axes.backends.AxesStandaloneBackend",
     "django.contrib.auth.backends.ModelBackend",
     "authy.backends.custom_auth_backend.CustomBackend",
 ]
@@ -216,6 +221,21 @@ REST_FRAMEWORK = {
 # OTP config
 OTP_ADMIN_HIDE_SENSITIVE_DATA = False
 OTP_TOTP_ISSUER = "Affily"
+
+# Axes Configuration
+AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
+AXES_FAILURE_LIMIT = 3
+AXES_RESET_ON_SUCCESS = True
+AXES_VERBOSE = False
+AXES_ENABLED = True
+AXES_IPWARE_META_PRECEDENCE_ORDER = (
+    "HTTP_X_REAL_IP",
+    "REMOTE_ADDR",
+)
+AXES_LOCKOUT_PARAMETERS = ["username"]
+AXES_COOLOFF_TIME = 3600
+AXES_USERNAME_FORM_FIELD = "username"
+AXES_EMAIL_FORM_FIELD = "email"
 
 
 # logging configuration

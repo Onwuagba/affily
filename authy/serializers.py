@@ -1,6 +1,8 @@
 import logging
 from base64 import urlsafe_b64encode
+from datetime import timedelta
 
+from axes.models import AccessAttempt
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
@@ -13,12 +15,13 @@ from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt import serializers as jwt_serializers
 
+from affily.settings import AXES_COOLOFF_TIME, AXES_FAILURE_LIMIT
 from authy.backends.custom_auth_backend import CustomBackend
 from authy.models import CustomToken, UserAccount
 from authy.signals import user_created
 from authy.utilities.constants import admin_support_sender, email_sender
 from authy.utilities.tasks import send_notif_email
-from two_fa.views import TOTPVerifyView, custom_verify, get_user_totp_device
+from two_fa.views import custom_verify, get_user_totp_device
 
 logger = logging.getLogger("app")
 UserModel = get_user_model()
@@ -300,6 +303,17 @@ class CustomTokenSerializer(jwt_serializers.TokenObtainPairSerializer):
                     "Account not verified yet. Check email to complete verification"
                 )
 
+            # check axes for locked out user
+            check_lockout, check_lockout_msg = self.check_lockout(req, user)
+            if not check_lockout:
+                raise AuthenticationFailed(check_lockout_msg)
+            elif check_lockout_msg:
+                # workaround for axes_reset_on_success
+                # Wasn't working from settings.py
+                # check_lockout_msg is now an obj
+                check_lockout_msg.failures_since_start = 0
+                check_lockout_msg.save()
+
             if device := get_user_totp_device(user):
                 # generate token and return it.
                 return self.confirm_2fa_required(user, device)
@@ -327,6 +341,34 @@ class CustomTokenSerializer(jwt_serializers.TokenObtainPairSerializer):
             "refresh": str(token),
             "2fa_required": False,
         }
+
+    def check_lockout(self, request, user_obj):
+        access_attempt = (
+            AccessAttempt.objects.filter(username=user_obj.username)
+            .order_by("-attempt_time")
+            .first()
+        )
+
+        if (
+            access_attempt
+            and access_attempt.failures_since_start >= AXES_FAILURE_LIMIT
+        ):
+            lockout_start_time = access_attempt.attempt_time
+            cooloff_period = timedelta(seconds=AXES_COOLOFF_TIME)
+
+            lockout_end_time = lockout_start_time + cooloff_period
+            remaining_time = max(lockout_end_time - timezone.now(), timedelta())
+
+            if remaining_time.total_seconds() > 0:
+                return (
+                    False,
+                    f"Account locked. Try again after {remaining_time.total_seconds()} seconds",
+                )
+
+        return (
+            True,
+            access_attempt,
+        )  # access_attempt can be None if no obj is found
 
 
 class LoginWith2faTokenSerializer(serializers.Serializer):
