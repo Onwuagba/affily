@@ -2,11 +2,14 @@ import contextlib
 import datetime
 import uuid
 
-from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.contrib.auth.models import (
+    AbstractUser,
+    BaseUserManager,
+    PermissionsMixin,
+)
 from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.db import IntegrityError, models, transaction
 from django.utils import timezone
-from django.contrib.auth.models import PermissionsMixin
 from django.utils.translation import gettext_lazy as _
 from rest_framework.authtoken.models import Token
 

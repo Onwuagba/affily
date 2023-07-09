@@ -5,8 +5,9 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Q
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
@@ -17,9 +18,18 @@ from authy.models import CustomToken, UserAccount
 from authy.signals import user_created
 from authy.utilities.constants import admin_support_sender, email_sender
 from authy.utilities.tasks import send_notif_email
-from django.db.models import Q
+from two_fa.views import TOTPVerifyView, custom_verify, get_user_totp_device
 
 logger = logging.getLogger("app")
+UserModel = get_user_model()
+
+
+token_validator = RegexValidator(
+    regex=r"^[a-zA-Z0-9-]+$",
+    message=(
+        "Invalid token format. Only alphanumeric characters and hyphens are allowed."
+    ),
+)
 
 
 class RegistrationSerializer(serializers.ModelSerializer):
@@ -260,24 +270,6 @@ class CustomTokenSerializer(jwt_serializers.TokenObtainPairSerializer):
         return fields
 
     def validate(self, attrs):
-        """
-        Validate the input attributes.
-
-        Args:
-            attrs (dict): A dictionary containing the input attributes.
-                - 'username' (str): The username.
-                - 'email' (str): The email.
-                - 'password' (str): The password.
-
-        Raises:
-            serializers.ValidationError: If 'username' or 'email' is not provided.
-            serializers.ValidationError: If 'password' is not provided.
-            AuthenticationFailed: If no account is found with the given credentials.
-            ValidationError: If authentication fails.
-
-        Returns:
-            dict: The validated attributes.
-        """
         username = attrs.get("username")
         email = attrs.get("email")
         password = attrs.get("password")
@@ -308,17 +300,86 @@ class CustomTokenSerializer(jwt_serializers.TokenObtainPairSerializer):
                     "Account not verified yet. Check email to complete verification"
                 )
 
+            if device := get_user_totp_device(user):
+                # generate token and return it.
+                return self.confirm_2fa_required(user, device)
+
         except Exception as e:
             logger.error(
                 f"Authentication failed for **{username or email}** with error: {e}"
             )
             raise ValidationError(e) from e
 
+        return self.return_token(user)
+
+    def confirm_2fa_required(self, user, device):
+        if device and device.confirmed:
+            return {
+                "token": default_token_generator.make_token(user),
+                "2fa_required": True,
+            }
+        return self.return_token(user)
+
+    def return_token(self, user):
         token = self.get_token(user)
         return {
             "access": str(token.access_token),
             "refresh": str(token),
+            "2fa_required": False,
         }
+
+
+class LoginWith2faTokenSerializer(serializers.Serializer):
+    username = serializers.CharField(required=False)
+    email = serializers.EmailField(required=False)
+    token = serializers.CharField(validators=[token_validator])
+    otp = serializers.CharField(max_length=6)
+
+    def validate(self, attrs):
+        username = attrs.get("username")
+        email = attrs.get("email")
+        token = attrs.get("token")
+        otp = attrs.get("otp")
+
+        if not username and not email:
+            raise ValidationError("Username or email must be provided.")
+
+        user = UserModel.objects.get(
+            Q(username=username) | Q(email=username), is_deleted=False
+        )
+
+        if not user:
+            raise ValidationError("Invalid username or email.")
+
+        if not user.is_active:
+            data = {"email": email} if email else {"username": username}
+            RegenerateEmailVerificationSerializer(
+                context={"request": self.context["request"]}
+            ).validate(data)
+            raise AuthenticationFailed(
+                "Account not verified yet. Check email to complete verification"
+            )
+
+        if not default_token_generator.check_token(user, token):
+            raise ValidationError("Invalid token.")
+
+        stat, msg = self.verify_user_otp(user, otp)
+        if stat:
+            auth_token = jwt_serializers.TokenObtainPairSerializer.get_token(user)
+            return {
+                "access": str(auth_token.access_token),
+                "refresh": str(auth_token),
+            }
+        raise ValidationError(msg)
+
+    def validate_otp(self, value):
+        if not value.isnumeric() or len(value) != 6:
+            raise ValidationError("Invalid OTP format.")
+        return value
+
+    def verify_user_otp(self, user, otp):
+        stat, otp_message = custom_verify(user, otp, self.context["request"])
+        return (True, "") if stat else (False, otp_message)
 
 
 class ResetPasswordSerializer(serializers.ModelSerializer):

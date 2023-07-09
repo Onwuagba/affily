@@ -23,6 +23,7 @@ from authy.serializers import (
     ConfirmEmailSerializer,
     CustomTokenSerializer,
     ForgotPasswordSerializer,
+    LoginWith2faTokenSerializer,
     LogoutSerializer,
     RegenerateEmailVerificationSerializer,
     RegistrationSerializer,
@@ -395,6 +396,35 @@ class CustomTokenView(jwt_views.TokenObtainPairView):
         return response.send()
 
 
+class LoginWith2fa(APIView):
+    serializer_class = LoginWith2faTokenSerializer
+
+    def post(self, request, *args, **kwargs):
+        try:
+            serializer = self.serializer_class(
+                data=request.data,
+                context={
+                    "request": self.request,
+                },
+            )
+            serializer.is_valid(raise_exception=True)
+            return Response(serializer._validated_data, status=status.HTTP_200_OK)
+
+        except TokenError as ex:
+            raise InvalidToken(ex.args[0]) from ex
+        except (ValidationError, Exception) as exc:
+            message = exc.args[0]
+            code_status = "failed"
+            status_code = (
+                status.HTTP_401_UNAUTHORIZED
+                if isinstance(exc, ValidationError)
+                else status.HTTP_400_BAD_REQUEST
+            )
+
+        response = CustomAPIResponse(message, status_code, code_status)
+        return response.send()
+
+
 class LogoutView(APIView):
     permission_classes = (IsAuthenticated,)
     serializer_class = LogoutSerializer
@@ -407,8 +437,6 @@ class LogoutView(APIView):
             token = RefreshToken(refresh_token)
             token.blacklist()
             logout(request)
-            request.session.flush()
-
             message = "Logout successful"
             code_status = "success"
             status_code = status.HTTP_205_RESET_CONTENT

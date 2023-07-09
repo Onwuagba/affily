@@ -1,20 +1,22 @@
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework import status
+import logging
+from base64 import urlsafe_b64decode, urlsafe_b64encode
+from typing import Any
+
+from django.contrib.auth import get_user_model
+from django.contrib.auth.tokens import default_token_generator
+from django.core.exceptions import PermissionDenied
 from django_otp import devices_for_user
 from django_otp.plugins.otp_totp.models import TOTPDevice
+from rest_framework import status
+from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from authy.api_response import CustomAPIResponse
-from two_fa.models import CustomTOTPDeviceModel
-from django.contrib.auth.tokens import default_token_generator
-from base64 import urlsafe_b64encode, urlsafe_b64decode
 from authy.utilities.constants import email_sender
 from notification.utilities.tasks import send_notification_email
-import logging
-from rest_framework.exceptions import ValidationError
-from django.contrib.auth import get_user_model
-from django.core.exceptions import PermissionDenied
+from two_fa.models import CustomTOTPDeviceModel
 
 logger = logging.getLogger("app")
 
@@ -49,7 +51,7 @@ class TOTPCreateView(APIView):
             name=request.data.get("name") or None,
         )
         CustomTOTPDeviceModel.objects.get_or_create(
-            user_device=device,
+            user_device=device, endpoint=request.path
         )
         message = device.config_url
         status_code = status.HTTP_201_CREATED
@@ -99,7 +101,7 @@ class TOTPDeleteView(APIView):
         # call celery
         send_notification_email.delay(email_content, context)
         return True
-    
+
 
 class TOTPCompleteDeleteView(APIView):
     """
@@ -113,27 +115,19 @@ class TOTPCompleteDeleteView(APIView):
         model = get_user_model()
 
         if not all([uid, token]):
-            raise ValidationError(
-                "Link is invalid or expired."
-            )
+            raise ValidationError("Link is invalid or expired.")
 
         uid = urlsafe_b64decode(uid).decode("utf-8")
         try:
             user_obj = model.objects.get(uid=uid)
         except model.DoesNotExist as e:
-            raise ValidationError(
-                "No user found with given ID. "
-            ) from e
-        
+            raise ValidationError("No user found with given ID. ") from e
+
         if user != user_obj:
-            raise PermissionDenied(
-                "Access denied for user"
-            )
+            raise PermissionDenied("Access denied for user")
 
         if not default_token_generator.check_token(user_obj, token):
-            raise ValidationError(
-                "Deactivation link has expired."
-            )
+            raise ValidationError("Deactivation link has expired.")
 
         return user
 
@@ -158,10 +152,10 @@ class TOTPCompleteDeleteView(APIView):
         except Exception as e:
             message = e.args[0]
             status_code = status.HTTP_403_FORBIDDEN
-        
+
         response = CustomAPIResponse(message, status_code, code_status)
         return response.send()
-    
+
 
 class TOTPVerifyView(APIView):
     """
@@ -170,30 +164,21 @@ class TOTPVerifyView(APIView):
 
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, token, format=None):
-        message = "Invalid token"
+    def post(self, request, format=None):
+        message = "Invalid otp"
         status_code = status.HTTP_400_BAD_REQUEST
         code_status = "failed"
-
+        token = request.data.get("otp")
         user = request.user
-        device = get_user_totp_device(user)
 
-        if not isinstance(token, int) or len(str(token)) != 6:
-            message = "Token is not valid"
-            response = CustomAPIResponse(message, status_code, code_status)
-            return response.send()
+        stat, otp_message = custom_verify(user, token, request)
+        message = otp_message
 
-        if not device:
-            message = "No device found for this user"
-
-        if device and device.verify_token(token):
-            if not device.confirmed:
-                device.confirmed = True
-                device.save()
-
-                CustomTOTPDeviceModel.objects.update_or_create(
-                    user_device=device,
-                )
+        if stat:
+            # otp_message represents device since custom_verify returns the device obj if check otp is valid
+            if not otp_message.confirmed:
+                otp_message.confirmed = True
+                otp_message.save()
 
                 message = "Device verified successfully"
                 status_code = status.HTTP_200_OK
@@ -203,3 +188,41 @@ class TOTPVerifyView(APIView):
 
         response = CustomAPIResponse(message, status_code, code_status)
         return response.send()
+
+
+def custom_verify(user, otp, request=None):
+    """
+    Custom verification function to verify the One-Time Password (OTP) for a user.
+
+    Args:
+        user (User): The user object for whom the OTP is being verified.
+        otp (str): The OTP entered by the user.
+        request (HttpRequest, optional): The HTTP request object (default: None).
+
+    Returns:
+        tuple: A tuple containing two values:
+            - res (bool): The result of the OTP verification. True if the OTP is valid, False otherwise.
+            - message (str or object): The verification result message. It can be one of the following:
+                - If the OTP is valid and a device is found for the user, the device object is returned.
+                - If the OTP is not valid, the message is set to "otp is not valid".
+                - If no device is found for the user, the message is set to "No device found for this user".
+
+    """
+    message = "Invalid otp"
+    res = False
+    device = get_user_totp_device(user)
+
+    if not otp or not otp.isdigit() or len(otp) != 6:
+        return res, "otp is not valid"
+
+    if not device:
+        message = "No device found for this user"
+
+    if device and device.verify_token(otp):
+        res = True
+        message = device
+
+        CustomTOTPDeviceModel.objects.create(
+            user_device=message, endpoint=request.path if request else None
+        )
+    return res, message
