@@ -21,11 +21,56 @@ from two_fa.models import CustomTOTPDeviceModel
 logger = logging.getLogger("app")
 
 
+###### NOTES ########
+# User can activate token
+# User can verify token
+# User can deactive token
+# User can create emergency backup codes if they lose their device
+
+
 def get_user_totp_device(user, confirmed=None):
     if devices := devices_for_user(user, confirmed=confirmed):
         for device in devices:
             if isinstance(device, TOTPDevice):
                 return device
+
+
+def custom_verify(user, otp, request=None):
+    """
+    Custom verification function to verify the One-Time Password (OTP) for a user.
+
+    Args:
+        user (User): The user object for whom the OTP is being verified.
+        otp (str): The OTP entered by the user.
+        request (HttpRequest, optional): The HTTP request object (default: None).
+
+    Returns:
+        tuple: A tuple containing two values:
+            - res (bool): The result of the OTP verification. True if the OTP is valid, False otherwise.
+            - message (str or object): The verification result message. It can be one of the following:
+                - If the OTP is valid and a device is found for the user, the device object is returned.
+                - If the OTP is not valid, the message is set to "otp is not valid".
+                - If no device is found for the user, the message is set to "No device found for this user".
+
+    """
+    message = "Invalid otp"
+    res = False
+    device = get_user_totp_device(user)
+
+    if not otp or not otp.isdigit() or len(otp) != 6:
+        return res, "otp is not valid"
+
+    if not device:
+        message = "No device found for this user"
+
+    if device and device.verify_token(otp):
+        res = True
+        message = device
+
+        CustomTOTPDeviceModel.objects.create(
+            user_device=message, endpoint=request.path if request else None
+        )
+    return res, message
 
 
 class TOTPCreateView(APIView):
@@ -188,41 +233,3 @@ class TOTPVerifyView(APIView):
 
         response = CustomAPIResponse(message, status_code, code_status)
         return response.send()
-
-
-def custom_verify(user, otp, request=None):
-    """
-    Custom verification function to verify the One-Time Password (OTP) for a user.
-
-    Args:
-        user (User): The user object for whom the OTP is being verified.
-        otp (str): The OTP entered by the user.
-        request (HttpRequest, optional): The HTTP request object (default: None).
-
-    Returns:
-        tuple: A tuple containing two values:
-            - res (bool): The result of the OTP verification. True if the OTP is valid, False otherwise.
-            - message (str or object): The verification result message. It can be one of the following:
-                - If the OTP is valid and a device is found for the user, the device object is returned.
-                - If the OTP is not valid, the message is set to "otp is not valid".
-                - If no device is found for the user, the message is set to "No device found for this user".
-
-    """
-    message = "Invalid otp"
-    res = False
-    device = get_user_totp_device(user)
-
-    if not otp or not otp.isdigit() or len(otp) != 6:
-        return res, "otp is not valid"
-
-    if not device:
-        message = "No device found for this user"
-
-    if device and device.verify_token(otp):
-        res = True
-        message = device
-
-        CustomTOTPDeviceModel.objects.create(
-            user_device=message, endpoint=request.path if request else None
-        )
-    return res, message
