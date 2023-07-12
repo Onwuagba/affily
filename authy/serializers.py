@@ -4,6 +4,7 @@ from datetime import timedelta
 
 from axes.models import AccessAttempt
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import update_last_login
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError
@@ -340,6 +341,7 @@ class CustomTokenSerializer(jwt_serializers.TokenObtainPairSerializer):
 
     def return_token(self, user):
         token = self.get_token(user)
+        update_last_login(None, user)  # fix: simplejwt last_login attr not working
         return {
             "access": str(token.access_token),
             "refresh": str(token),
@@ -347,6 +349,17 @@ class CustomTokenSerializer(jwt_serializers.TokenObtainPairSerializer):
         }
 
     def check_lockout(self, request, user_obj):
+        """
+        Check if the user is locked out based on their access attempts.
+
+        Args:
+            request: The request object.
+            user_obj: The user object.
+
+        Returns:
+            A tuple containing a boolean indicating if the user is locked out and
+            an `AccessAttempt` object if found, otherwise `None`.
+        """
         access_attempt = (
             AccessAttempt.objects.filter(username=user_obj.username)
             .order_by("-attempt_time")
@@ -367,8 +380,9 @@ class CustomTokenSerializer(jwt_serializers.TokenObtainPairSerializer):
                 return (
                     False,
                     (
-                    "Account locked."
-                    f"Try again after {int(remaining_time.total_seconds())} seconds"),
+                        "Account locked."
+                        f"Try again after {int(remaining_time.total_seconds())} second"
+                    ),
                 )
 
         return (
@@ -414,6 +428,7 @@ class LoginWith2faTokenSerializer(serializers.Serializer):
         stat, msg = self.verify_user_otp(user, otp)
         if stat:
             auth_token = jwt_serializers.TokenObtainPairSerializer.get_token(user)
+            update_last_login(None, user)  # simplejwt last_login not working
             return {
                 "access": str(auth_token.access_token),
                 "refresh": str(auth_token),
@@ -421,6 +436,7 @@ class LoginWith2faTokenSerializer(serializers.Serializer):
         raise ValidationError(msg)
 
     def validate_otp(self, value):
+        # default otp field validation
         if not value.isnumeric() or len(value) != 6:
             raise ValidationError("Invalid OTP format.")
         return value
