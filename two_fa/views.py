@@ -1,4 +1,4 @@
-import logging
+import logging, os
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 
 from django.contrib.auth import get_user_model
@@ -18,8 +18,14 @@ from authy.utilities.constants import email_sender
 from notification.utilities.tasks import send_notification_email
 from two_fa.models import CustomTOTPDeviceModel
 from two_fa.permissions import OtpRequired
+from two_fa.utils import hash_string
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger("app")
+
+OTP_ENCRYPT_KEY = os.getenv("OTP_ENCRYPT_KEY").encode("utf-8")
 
 
 ###### NOTES ########
@@ -83,17 +89,17 @@ def custom_verify(user, otp, request=None):
 
 def custom_verify_backup_code(user, otp):
     res = False
-    message = "Error verifying code"
+    message = "Invalid OTP"
     device = get_user_static_device(user, confirmed=True)
 
     if not otp or len(otp) != 8:
-        return res, "otp is not valid"
+        return res, "OTP is not valid"
 
     if not device:
         message = "No device found for this user"
 
-    # decode token here
-    if device and device.verify_token(otp):
+    decrypted_otp = hash_string(otp)
+    if device and device.verify_token(decrypted_otp):
         res = True
         message = device
 
@@ -279,8 +285,7 @@ class BackupCodesCreateView(APIView):
             tokens = []
             for _ in range(self.number_of_static_tokens):
                 token = StaticToken.random_token()
-                # add encryption here
-                device.token_set.create(token=token)
+                device.token_set.create(token=hash_string(token))
                 tokens.append(token)
 
             message = tokens

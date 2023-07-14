@@ -1,13 +1,17 @@
 import base64
-
 from Crypto.Cipher import AES
+import os, codecs
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# decode the escaped string & obtain the byte string
+KEY = codecs.escape_decode(os.getenv('KEY'))[0]
+IV = codecs.escape_decode(os.getenv('IV'))[0]
 
 data = {
-    "key": (
-        b"\xc1I\xd1\xcf\x07\x82\xd8k\x8e%\xec\xc6\x0e\x8c\x06"
-        b"\xf1\xa8\xe6\x8aBO\x14Y\xb1\xdd\xce*\x1b\x8f\x05\xfd\xbe"
-    ),  # this is nt a tuple oo...single line string broken into 2 cos of flake8
-    "iv": b"cy]& \xd3\xef\xafE\xf1+\x90\xb9\xdf\x1f1",
+    "key": KEY, 
+    "iv": IV,
 }
 
 
