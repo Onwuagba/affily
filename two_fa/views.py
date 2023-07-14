@@ -1,22 +1,23 @@
 import logging
 from base64 import urlsafe_b64decode, urlsafe_b64encode
-from typing import Any
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import PermissionDenied
+from django.db import IntegrityError
 from django_otp import devices_for_user
+from django_otp.plugins.otp_static.models import StaticDevice, StaticToken
 from django_otp.plugins.otp_totp.models import TOTPDevice
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from authy.api_response import CustomAPIResponse
 from authy.utilities.constants import email_sender
 from notification.utilities.tasks import send_notification_email
 from two_fa.models import CustomTOTPDeviceModel
+from two_fa.permissions import OtpRequired
 
 logger = logging.getLogger("app")
 
@@ -26,6 +27,13 @@ logger = logging.getLogger("app")
 # User can verify token
 # User can deactive token
 # User can create emergency backup codes if they lose their device
+
+
+def get_user_static_device(user, confirmed=None):
+    devices = devices_for_user(user, confirmed=confirmed)
+    for device in devices:
+        if isinstance(device, StaticDevice):
+            return device
 
 
 def get_user_totp_device(user, confirmed=None):
@@ -73,6 +81,25 @@ def custom_verify(user, otp, request=None):
     return res, message
 
 
+def custom_verify_backup_code(user, otp):
+    res = False
+    message = "Error verifying code"
+    device = get_user_static_device(user, confirmed=True)
+
+    if not otp or len(otp) != 8:
+        return res, "otp is not valid"
+
+    if not device:
+        message = "No device found for this user"
+
+    # decode token here
+    if device and device.verify_token(otp):
+        res = True
+        message = device
+
+    return res, message
+
+
 class TOTPCreateView(APIView):
     """
     Endpoint to activate 2fa and add TOTP device
@@ -110,7 +137,7 @@ class TOTPDeleteView(APIView):
     """
 
     http_method_names = ["delete"]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [OtpRequired]
 
     def delete(self, request):
         user = request.user
@@ -209,7 +236,7 @@ class TOTPVerifyView(APIView):
 
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, format=None):
+    def post(self, request):
         message = "Invalid otp"
         status_code = status.HTTP_400_BAD_REQUEST
         code_status = "failed"
@@ -221,6 +248,83 @@ class TOTPVerifyView(APIView):
 
         if stat:
             # otp_message represents device since custom_verify returns the device obj if check otp is valid
+            if not otp_message.confirmed:
+                otp_message.confirmed = True
+                otp_message.save()
+
+                message = "Device verified successfully"
+                status_code = status.HTTP_200_OK
+                code_status = "success"
+            else:
+                message = "Device already verified"
+
+        response = CustomAPIResponse(message, status_code, code_status)
+        return response.send()
+
+
+class BackupCodesCreateView(APIView):
+    permission_classes = [OtpRequired]
+    number_of_static_tokens = 8
+
+    def post(self, request):
+        status_code = status.HTTP_400_BAD_REQUEST
+        code_status = "failed"
+
+        try:
+            device = get_user_static_device(
+                request.user
+            ) or StaticDevice.objects.create(user=request.user, name="Static")
+
+            device.token_set.all().delete()
+            tokens = []
+            for _ in range(self.number_of_static_tokens):
+                token = StaticToken.random_token()
+                # add encryption here
+                device.token_set.create(token=token)
+                tokens.append(token)
+
+            message = tokens
+            status_code = status.HTTP_201_CREATED
+            code_status = "success"
+
+        except IntegrityError:
+            message = "Error creating static device. Please try again"
+
+        except ValidationError as e:
+            logger.error(
+                "ValidationError in creating emergency codes: ", str(e.args[0])
+            )
+            message = str(e.args[0])
+
+        except Exception as e:
+            logger.error("Exception in creating emergency codes: ", str(e.args[0]))
+            message = "An error occurred"
+
+        response = CustomAPIResponse(message, status_code, code_status)
+        return response.send()
+
+
+class AccessOTPServiceWithLostDevice(APIView):
+    """
+    Endpoint for access any service if user loses their OTP device
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, otp):
+        user = request.user
+
+        if not user or user.is_deleted or not user.is_active:
+            return CustomAPIResponse(
+                "No account found for this user",
+                status.HTTP_400_BAD_REQUEST,
+                "failed",
+            ).send()
+
+        stat, otp_message = custom_verify_backup_code(user, otp)
+        message = otp_message
+
+        if stat:
             if not otp_message.confirmed:
                 otp_message.confirmed = True
                 otp_message.save()

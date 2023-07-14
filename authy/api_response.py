@@ -44,15 +44,6 @@ class CustomAPIResponse:
         return Response(self.data, status=self.status_code)
 
     def convert_to_string(self, message):
-        """
-        Convert a dictionary to a formatted string.
-
-        Args:
-            message (dict): A dictionary containing key-value pairs to format.
-
-        Returns:
-            str: A formatted string containing the dictionary's key-value pairs.
-        """
         res = []
         for key, value in message.items():
             if isinstance(value, list):

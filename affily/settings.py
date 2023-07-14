@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "drf_yasg",
     "django_otp",
     "django_otp.plugins.otp_totp",
+    "django_otp.plugins.otp_static",
     "axes",
     # rest api
     "rest_framework",
@@ -219,7 +220,7 @@ REST_FRAMEWORK = {
 }
 
 # OTP config
-OTP_ADMIN_HIDE_SENSITIVE_DATA = False
+OTP_ADMIN_HIDE_SENSITIVE_DATA = False  # change to True
 OTP_TOTP_ISSUER = "Affily"
 
 # Axes Configuration

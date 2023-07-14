@@ -1,6 +1,7 @@
 from django.urls import path
 
 from two_fa.views import (
+    BackupCodesCreateView,
     TOTPCompleteDeleteView,
     TOTPCreateView,
     TOTPDeleteView,
@@ -17,5 +18,8 @@ urlpatterns = [
         "complete_deactivate/<str:uid>/<str:token>",
         TOTPCompleteDeleteView.as_view(),
         name="totp-deactivate-complete",
+    ),
+    path(
+        "create_backup/", BackupCodesCreateView.as_view(), name="totp-create-backup"
     ),
 ]

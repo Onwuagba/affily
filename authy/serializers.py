@@ -23,7 +23,11 @@ from authy.models import CustomToken, UserAccount
 from authy.signals import user_created
 from authy.utilities.constants import admin_support_sender, email_sender
 from authy.utilities.tasks import send_notif_email
-from two_fa.views import custom_verify, get_user_totp_device
+from two_fa.views import (
+    custom_verify,
+    custom_verify_backup_code,
+    get_user_totp_device,
+)
 
 logger = logging.getLogger("app")
 UserModel = get_user_model()
@@ -443,6 +447,55 @@ class LoginWith2faTokenSerializer(serializers.Serializer):
 
     def verify_user_otp(self, user, otp):
         stat, otp_message = custom_verify(user, otp, self.context["request"])
+        return (True, "") if stat else (False, otp_message)
+
+
+class LoginWithLost2faDeviceTokenSerializer(serializers.Serializer):
+    username = serializers.CharField(required=False)
+    email = serializers.EmailField(required=False)
+    token = serializers.CharField(validators=[token_validator])
+    otp = serializers.CharField(max_length=10)
+
+    def validate(self, attrs):
+        username = attrs.get("username")
+        email = attrs.get("email")
+        token = attrs.get("token")
+        otp = attrs.get("otp")
+
+        if not username and not email:
+            raise ValidationError("Username or email must be provided.")
+
+        user = UserModel.objects.get(
+            Q(username=username) | Q(email=username), is_deleted=False
+        )
+
+        if not user:
+            raise ValidationError("Invalid username or email.")
+
+        if not user.is_active:
+            data = {"email": email} if email else {"username": username}
+            RegenerateEmailVerificationSerializer(
+                context={"request": self.context["request"]}
+            ).validate(data)
+            raise AuthenticationFailed(
+                "Account not verified yet. Check email to complete verification"
+            )
+
+        if not default_token_generator.check_token(user, token):
+            raise ValidationError("Invalid token.")
+
+        stat, msg = self.verify_user_otp(user, otp)
+        if stat:
+            auth_token = jwt_serializers.TokenObtainPairSerializer.get_token(user)
+            update_last_login(None, user)  # simplejwt last_login not working
+            return {
+                "access": str(auth_token.access_token),
+                "refresh": str(auth_token),
+            }
+        raise ValidationError(msg)
+
+    def verify_user_otp(self, user, otp):
+        stat, otp_message = custom_verify_backup_code(user, otp)
         return (True, "") if stat else (False, otp_message)
 
 
