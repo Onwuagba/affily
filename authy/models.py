@@ -2,6 +2,7 @@ import contextlib
 import datetime
 import uuid
 
+from axes.models import AccessAttempt
 from django.contrib.auth.models import (
     AbstractUser,
     BaseUserManager,
@@ -13,6 +14,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from rest_framework.authtoken.models import Token
 
+from affily.settings import AXES_COOLOFF_TIME, AXES_FAILURE_LIMIT
 from authy.validators import validate_phone_number
 
 
@@ -109,8 +111,48 @@ class UserAccount(AbstractUser, PermissionsMixin, BaseModel):
     def __str__(self):
         return self.email
 
-    def get_full_name(self) -> str:
-        return super().get_full_name()
+    def check_lockout(self):
+        """
+        Check if the user is locked out based on their access attempts.
+
+        Args:
+            user_obj: The user object.
+
+        Returns:
+            A tuple containing a boolean indicating if the user is locked out and
+            an `AccessAttempt` object if found, otherwise `None`.
+        """
+        access_attempt = (
+            AccessAttempt.objects.filter(username=self.username)
+            .order_by("-attempt_time")
+            .first()
+        )
+
+        if (
+            access_attempt
+            and access_attempt.failures_since_start >= AXES_FAILURE_LIMIT
+        ):
+            lockout_start_time = access_attempt.attempt_time
+            cooloff_period = datetime.timedelta(seconds=AXES_COOLOFF_TIME)
+
+            lockout_end_time = lockout_start_time + cooloff_period
+            remaining_time = max(
+                lockout_end_time - timezone.now(), datetime.timedelta()
+            )
+
+            if remaining_time.total_seconds() > 0:
+                return (
+                    True,
+                    (
+                        "Account locked."
+                        f"Try again after {int(remaining_time.total_seconds())} seconds"
+                    ),
+                )
+
+        return (
+            False,
+            access_attempt,
+        )  # access_attempt can be None if no obj is found
 
 
 class CustomToken(Token):

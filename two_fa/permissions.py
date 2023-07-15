@@ -1,6 +1,7 @@
 from django_otp import user_has_device
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import IsAuthenticated
+
+from authy.permissions import IsAuthenticated
 
 
 class OtpRequired(IsAuthenticated):

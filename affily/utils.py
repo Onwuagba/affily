@@ -1,16 +1,18 @@
 import base64
+import codecs
+import os
+
 from Crypto.Cipher import AES
-import os, codecs
 from dotenv import load_dotenv
 
 load_dotenv()
 
 # decode the escaped string & obtain the byte string
-KEY = codecs.escape_decode(os.getenv('KEY'))[0]
-IV = codecs.escape_decode(os.getenv('IV'))[0]
+KEY = codecs.escape_decode(os.getenv("KEY"))[0]
+IV = codecs.escape_decode(os.getenv("IV"))[0]
 
 data = {
-    "key": KEY, 
+    "key": KEY,
     "iv": IV,
 }
 

@@ -1,8 +1,6 @@
 import logging
 from base64 import urlsafe_b64encode
-from datetime import timedelta
 
-from axes.models import AccessAttempt
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import update_last_login
 from django.contrib.auth.password_validation import validate_password
@@ -310,8 +308,8 @@ class CustomTokenSerializer(jwt_serializers.TokenObtainPairSerializer):
                 )
 
             # check axes for locked out user
-            check_lockout, check_lockout_msg = self.check_lockout(req, user)
-            if not check_lockout:
+            check_lockout, check_lockout_msg = user.check_lockout()
+            if check_lockout:
                 raise AccountLocked(check_lockout_msg)
             elif check_lockout_msg:
                 # workaround for axes_reset_on_success
@@ -352,47 +350,47 @@ class CustomTokenSerializer(jwt_serializers.TokenObtainPairSerializer):
             "2fa_required": False,
         }
 
-    def check_lockout(self, request, user_obj):
-        """
-        Check if the user is locked out based on their access attempts.
+    # def check_lockout(self, request, user_obj):
+    #     """
+    #     Check if the user is locked out based on their access attempts.
 
-        Args:
-            request: The request object.
-            user_obj: The user object.
+    #     Args:
+    #         request: The request object.
+    #         user_obj: The user object.
 
-        Returns:
-            A tuple containing a boolean indicating if the user is locked out and
-            an `AccessAttempt` object if found, otherwise `None`.
-        """
-        access_attempt = (
-            AccessAttempt.objects.filter(username=user_obj.username)
-            .order_by("-attempt_time")
-            .first()
-        )
+    #     Returns:
+    #         A tuple containing a boolean indicating if the user is locked out and
+    #         an `AccessAttempt` object if found, otherwise `None`.
+    #     """
+    #     access_attempt = (
+    #         AccessAttempt.objects.filter(username=user_obj.username)
+    #         .order_by("-attempt_time")
+    #         .first()
+    #     )
 
-        if (
-            access_attempt
-            and access_attempt.failures_since_start >= AXES_FAILURE_LIMIT
-        ):
-            lockout_start_time = access_attempt.attempt_time
-            cooloff_period = timedelta(seconds=AXES_COOLOFF_TIME)
+    #     if (
+    #         access_attempt
+    #         and access_attempt.failures_since_start >= AXES_FAILURE_LIMIT
+    #     ):
+    #         lockout_start_time = access_attempt.attempt_time
+    #         cooloff_period = timedelta(seconds=AXES_COOLOFF_TIME)
 
-            lockout_end_time = lockout_start_time + cooloff_period
-            remaining_time = max(lockout_end_time - timezone.now(), timedelta())
+    #         lockout_end_time = lockout_start_time + cooloff_period
+    #         remaining_time = max(lockout_end_time - timezone.now(), timedelta())
 
-            if remaining_time.total_seconds() > 0:
-                return (
-                    False,
-                    (
-                        "Account locked."
-                        f"Try again after {int(remaining_time.total_seconds())} second"
-                    ),
-                )
+    #         if remaining_time.total_seconds() > 0:
+    #             return (
+    #                 False,
+    #                 (
+    #                     "Account locked."
+    #                     f"Try again after {int(remaining_time.total_seconds())} second"
+    #                 ),
+    #             )
 
-        return (
-            True,
-            access_attempt,
-        )  # access_attempt can be None if no obj is found
+    #     return (
+    #         True,
+    #         access_attempt,
+    #     )  # access_attempt can be None if no obj is found
 
 
 class LoginWith2faTokenSerializer(serializers.Serializer):

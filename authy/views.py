@@ -8,7 +8,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.generics import CreateAPIView, UpdateAPIView
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt import views as jwt_views
@@ -19,6 +19,7 @@ from authy.api_response import CustomAPIResponse
 from authy.exceptions import AccountLocked
 from authy.generics import check_email_username
 from authy.models import CustomToken, UserAccount
+from authy.permissions import IsAuthenticated
 from authy.serializers import (
     ChangePasswordSerializer,
     ConfirmEmailSerializer,

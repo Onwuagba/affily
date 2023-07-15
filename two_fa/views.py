@@ -1,4 +1,5 @@
-import logging, os
+import logging
+import os
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 
 from django.contrib.auth import get_user_model
@@ -8,18 +9,18 @@ from django.db import IntegrityError
 from django_otp import devices_for_user
 from django_otp.plugins.otp_static.models import StaticDevice, StaticToken
 from django_otp.plugins.otp_totp.models import TOTPDevice
+from dotenv import load_dotenv
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from authy.api_response import CustomAPIResponse
+from authy.permissions import IsAuthenticated
 from authy.utilities.constants import email_sender
 from notification.utilities.tasks import send_notification_email
 from two_fa.models import CustomTOTPDeviceModel
 from two_fa.permissions import OtpRequired
 from two_fa.utils import hash_string
-from dotenv import load_dotenv
 
 load_dotenv()
 
