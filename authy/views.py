@@ -34,12 +34,13 @@ from authy.serializers import (
 )
 from authy.utilities.constants import admin_support_sender, email_sender
 from authy.utilities.tasks import send_notif_email
+from two_fa.permissions import OtpRequired
 
 logger = logging.getLogger("app")
 
 
 class Home(APIView):
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (OtpRequired,)
 
     def get(self, request, *args):
         user_name = request.user
@@ -500,7 +501,8 @@ class ResetPasswordView(UpdateAPIView):
 
     permission_classes = (IsAuthenticated,)
     serializer_class = ResetPasswordSerializer
-
+    http_method_names = ['patch']
+    
     def get_object(self):
         return self.request.user
 

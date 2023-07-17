@@ -16,20 +16,10 @@ class CustomAPIResponse:
             ValidationError: If message and status code are empty.
 
         """
-        if not all([message, status_code, status]):
-            raise ValidationError("message and status code cannot be empty")
-
-        self.data = {"status": status}
-        if status == "failed":
-            if isinstance(message, (ValidationError, ValueError)):
-                self.data["message"] = message.args[0]
-            elif isinstance(message, dict):
-                self.data["message"] = self.convert_to_string(message)
-            else:
-                self.data["message"] = message
-        else:
-            self.data["data"] = message
+        self.message = message
         self.status_code = status_code
+        self.status = status
+        
 
     def send(self) -> Response:
         """
@@ -41,7 +31,23 @@ class CustomAPIResponse:
         Returns:
             A Response object with the data and status code.
         """
-        return Response(self.data, status=self.status_code)
+
+        if not all([self.message, self.status_code, self.status]):
+            raise ValidationError("message and status code cannot be empty")
+
+        data = {"status": self.status}
+        if self.status == "failed":
+            if isinstance(self.message, (ValidationError, ValueError)):
+                data["message"] = self.message.args[0]
+            elif isinstance(self.message, dict):
+                data["message"] = self.convert_to_string(self.message)
+            else:
+                data["message"] = self.message
+        else:
+            data["data"] = self.message
+        status_code = self.status_code
+
+        return Response(data, status=status_code)
 
     def convert_to_string(self, message):
         res = []
