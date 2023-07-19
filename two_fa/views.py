@@ -33,7 +33,7 @@ OTP_ENCRYPT_KEY = os.getenv("OTP_ENCRYPT_KEY").encode("utf-8")
 # User can activate token
 # User can verify token
 # User can deactive token
-# User can create emergency backup codes if they lose their device
+# User can create recovery backup codes if they lose their device
 
 
 def get_user_static_device(user, confirmed=None):
@@ -68,39 +68,48 @@ def custom_verify(user, otp, request=None):
                 - If no device is found for the user, the message is set to "No device found for this user".
 
     """
-    message = "Invalid otp"
-    res = False
+    if not otp or not otp.isdigit() or len(otp) not in (6, 8):
+        return False, "otp is not valid"
+
     device = get_user_totp_device(user)
 
-    if not otp or not otp.isdigit() or len(otp) != 6:
-        return res, "otp is not valid"
-
     if not device:
-        message = "No device found for this user"
+        return False, "No device found for this user"
 
-    if device and device.verify_token(otp):
-        res = True
-        message = device
-
+    if device.verify_token(otp):
         CustomTOTPDeviceModel.objects.create(
-            user_device=message, endpoint=request.path if request else None
+            user_device=device, endpoint=request.path if request else None
         )
-    return res, message
+        return True, device
+
+    # instead of calling 2 endpoints (otplogin & lostdevicelogin)
+    # combine both and check whichever one the user provides
+    # check attached image from gitlab 2fa
+    res, msg = custom_verify_backup_code(user, otp)
+    if res:
+        CustomTOTPDeviceModel.objects.create(
+            user_device=msg, endpoint=request.path if request else None
+        )
+        return True, msg
+
+    return False, "Invalid otp"
 
 
-def custom_verify_backup_code(user, otp):
+def custom_verify_backup_code(user, code):
+    # code: recovery code
     res = False
-    message = "Invalid OTP"
+    message = "Invalid code"
     device = get_user_static_device(user, confirmed=True)
 
-    if not otp or len(otp) != 8:
-        return res, "OTP is not valid"
+    if not code or len(code) != 8:
+        return res, "Recovery code is not valid"
 
     if not device:
         message = "No device found for this user"
 
-    decrypted_otp = hash_string(otp)
-    if device and device.verify_token(decrypted_otp):
+    # compare the hashed value of the code with the hashed value stored in db
+    decrypted_code = hash_string(code)
+    if device and device.verify_token(decrypted_code):
         res = True
         message = device
 
@@ -298,12 +307,12 @@ class BackupCodesCreateView(APIView):
 
         except ValidationError as e:
             logger.error(
-                "ValidationError in creating emergency codes: ", str(e.args[0])
+                "ValidationError in creating recovery codes: ", str(e.args[0])
             )
             message = str(e.args[0])
 
         except Exception as e:
-            logger.error("Exception in creating emergency codes: ", str(e.args[0]))
+            logger.error("Exception in creating recovery codes: ", str(e.args[0]))
             message = "An error occurred"
 
         response = CustomAPIResponse(message, status_code, code_status)

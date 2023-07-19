@@ -397,7 +397,7 @@ class LoginWith2faTokenSerializer(serializers.Serializer):
     username = serializers.CharField(required=False)
     email = serializers.EmailField(required=False)
     token = serializers.CharField(validators=[token_validator])
-    otp = serializers.CharField(max_length=6)
+    otp = serializers.CharField(max_length=8)
 
     def validate(self, attrs):
         username = attrs.get("username")
@@ -439,9 +439,10 @@ class LoginWith2faTokenSerializer(serializers.Serializer):
 
     def validate_otp(self, value):
         # default otp field validation
-        if not value.isnumeric() or len(value) != 6:
+        if value.isnumeric() and len(value) in {6, 8}:
+            return value
+        else:
             raise ValidationError("Invalid OTP format.")
-        return value
 
     def verify_user_otp(self, user, otp):
         stat, otp_message = custom_verify(user, otp, self.context["request"])
