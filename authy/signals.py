@@ -43,7 +43,7 @@ def send_email_on_user_creation(sender, instance, created, request, **kwargs):
 
             uid = urlsafe_base64_encode(force_bytes(instance.pk))
             domain = get_current_site(request).domain
-            # domain = request.get_host() # does same as above. 
+            # domain = request.get_host() # does same as above.
             # get_current_site uses the sites framework and gets the domain defined
             # django admin SITES app
             confirm_url = reverse(

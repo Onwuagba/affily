@@ -6,6 +6,7 @@ from django.utils.html import strip_tags
 
 logger = logging.getLogger("app")
 
+
 def send_mail_now(content: dict, context: dict):
     """
     Accept email content as well as context to be passed to the template

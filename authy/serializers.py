@@ -22,7 +22,7 @@ from authy.helpers.helper import (
     TwitterSignIn,
     allowed_providers,
     facebook_social_check,
-    GoogleSignIn
+    GoogleSignIn,
 )
 from authy.models import CustomToken, UserAccount
 from authy.signals import user_created

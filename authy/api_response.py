@@ -19,7 +19,6 @@ class CustomAPIResponse:
         self.message = message
         self.status_code = status_code
         self.status = status
-        
 
     def send(self) -> Response:
         """

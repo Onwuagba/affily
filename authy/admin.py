@@ -86,7 +86,13 @@ class CustomAdmin(UserAdmin):
         ),
     )
 
-    readonly_fields = ["channel", "date_joined", "last_login", "created_at", "updated_at"]
+    readonly_fields = [
+        "channel",
+        "date_joined",
+        "last_login",
+        "created_at",
+        "updated_at",
+    ]
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
@@ -149,7 +155,7 @@ class CustomAdmin(UserAdmin):
                 ),
             )
         return super().get_fieldsets(request, obj)
-    
+
     def get_queryset(self, request):
         qs = UserAccount.admin_objects.get_queryset()
         # If the logged-in user is a staff user

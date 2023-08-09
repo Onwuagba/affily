@@ -33,11 +33,13 @@ class BaseModel(models.Model):
         abstract = True
         ordering = ["-created_at", "-updated_at"]
 
+
 class CustomAdminManager(BaseUserManager):
     """relevant for admin to still see soft-deleted users
-     that is hidden via the UserManager class below."""
+    that is hidden via the UserManager class below."""
 
     pass
+
 
 class UserManager(BaseUserManager):
     def create_user(self, email, username, password=None, **extra_fields):
@@ -66,7 +68,7 @@ class UserManager(BaseUserManager):
         if extra_fields.get("is_superuser") is not True:
             raise ValueError("Superuser must have is_superuser=True.")
         return self.create_user(email, username, password, **extra_fields)
-    
+
     def get_queryset(self) -> QuerySet:
         # hide deleted users from queries. Incase I forget to do manually
         return super().get_queryset().filter(is_deleted=False)
@@ -124,7 +126,7 @@ class UserAccount(AbstractUser, PermissionsMixin, BaseModel):
     REQUIRED_FIELDS = ["email", "first_name", "last_name"]
 
     objects = UserManager()
-    admin_objects = CustomAdminManager() # manager for admin
+    admin_objects = CustomAdminManager()  # manager for admin
 
     def __str__(self):
         return self.email
