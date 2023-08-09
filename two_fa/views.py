@@ -15,7 +15,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.views import APIView
 
 from authy.api_response import CustomAPIResponse
-from authy.permissions import IsAuthenticated
+from common.permissions import IsAuthenticated
 from authy.utilities.constants import email_sender
 from notification.utilities.tasks import send_notification_email
 from two_fa.models import CustomTOTPDeviceModel
@@ -84,7 +84,7 @@ def custom_verify(user, otp, request=None):
 
     # instead of calling 2 endpoints (otplogin & lostdevicelogin)
     # combine both and check whichever one the user provides
-    # check attached image from gitlab 2fa
+    # check attached image from gitlab 2fa (otp_sample.png)
     res, msg = custom_verify_backup_code(user, otp)
     if res:
         CustomTOTPDeviceModel.objects.create(

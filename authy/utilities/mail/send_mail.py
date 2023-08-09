@@ -1,9 +1,10 @@
-import re
+import re, logging
 
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 
+logger = logging.getLogger("app")
 
 def send_mail_now(content: dict, context: dict):
     """
@@ -27,6 +28,7 @@ def send_mail_now(content: dict, context: dict):
         # msg = email.send()
         print(email)
         return ("Mail sent successfully", True) if email == 1 else ("Failed", False)
+    logger.error(check_headers)
     return check_headers, False
 
 

@@ -33,7 +33,7 @@ SECRET_KEY = os.getenv("AF_SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [os.getenv("AF_ALLOWED_HOSTS")]
+ALLOWED_HOSTS = os.getenv("AF_ALLOWED_HOSTS").split(",")
 
 
 # Application definition
@@ -45,12 +45,21 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.sites",
     # 3rd party
     "drf_yasg",
     "django_otp",
     "django_otp.plugins.otp_totp",
     "django_otp.plugins.otp_static",
     "axes",
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.twitter",
+    "allauth.socialaccount.providers.facebook",
+    "allauth.socialaccount.providers.google",
+    "rest_framework.authtoken",
+    "dj_rest_auth",
     # rest api
     "rest_framework",
     "rest_framework_simplejwt.token_blacklist",
@@ -60,6 +69,7 @@ INSTALLED_APPS = [
     "authy",
     "notification",
     "two_fa",
+    "common",
 ]
 
 MIDDLEWARE = [
@@ -114,6 +124,37 @@ DATABASES = {
         "HOST": os.getenv("DB_HOST"),
         "PORT": os.getenv("DB_PORT", "5432"),
     }
+    # "default": {
+    #     "ENGINE": "django.db.backends.postgresql",
+    #     "NAME": "affil",
+    #     "USER": "postgres",
+    #     "PASSWORD": "password",
+    #     "HOST": "localhost",
+    #     "PORT": "5432",
+    # }
+}
+
+# DJANGO-ALL-AUTH FOR SOCIAL AUTH
+SITE_ID = 1
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_EMAIL_VERIFICATION = "none"
+
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "APP": {
+            "client_id": os.getenv("GOOGLE_CLIENT_ID"),
+            "secret": os.getenv("GOOGLE_SECRET"),
+            "key": "",  # leave empty
+        },
+        "SCOPE": [
+            "profile",
+            "email",
+        ],
+        "AUTH_PARAMS": {
+            "access_type": "offline",
+        },
+        "VERIFIED_EMAIL": True,
+    },
 }
 
 # DRF API LOGGER
@@ -188,6 +229,7 @@ AUTHENTICATION_BACKENDS = [
     "axes.backends.AxesStandaloneBackend",
     "django.contrib.auth.backends.ModelBackend",
     "authy.backends.custom_auth_backend.CustomBackend",
+    "allauth.account.auth_backends.AuthenticationBackend",
 ]
 
 # JWT

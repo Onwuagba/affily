@@ -10,6 +10,9 @@ def validate_phone_number(value):
     :param value: A string representing the phone number to be validated.
     :raises ValidationError: If the phone number is not valid.
     """
+    if value and str(value).startswith('+'):
+        value = f'0{str(value)[4:]}'
+
     if not re.match(r"^\d{11}$", value):
         raise ValidationError("Invalid phone number. Must be 11 digits.")
 

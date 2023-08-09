@@ -10,12 +10,14 @@ from django.contrib.auth.models import (
 )
 from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.db import IntegrityError, models, transaction
+from django.db.models.query import QuerySet
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from rest_framework.authtoken.models import Token
 
 from affily.settings import AXES_COOLOFF_TIME, AXES_FAILURE_LIMIT
 from authy.validators import validate_phone_number
+from authy.utilities.constants import CHANNELS
 
 
 class BaseModel(models.Model):
@@ -24,13 +26,18 @@ class BaseModel(models.Model):
     is_deleted = models.BooleanField(
         _("Deactivate Account"),
         default=False,
-        help_text=_("Designates whether this entry should be soft-deleted."),
+        help_text=_("Designates whether this entry has been deleted."),
     )
 
     class Meta:
         abstract = True
         ordering = ["-created_at", "-updated_at"]
 
+class CustomAdminManager(BaseUserManager):
+    """relevant for admin to still see soft-deleted users
+     that is hidden via the UserManager class below."""
+
+    pass
 
 class UserManager(BaseUserManager):
     def create_user(self, email, username, password=None, **extra_fields):
@@ -59,6 +66,10 @@ class UserManager(BaseUserManager):
         if extra_fields.get("is_superuser") is not True:
             raise ValueError("Superuser must have is_superuser=True.")
         return self.create_user(email, username, password, **extra_fields)
+    
+    def get_queryset(self) -> QuerySet:
+        # hide deleted users from queries. Incase I forget to do manually
+        return super().get_queryset().filter(is_deleted=False)
 
 
 class UserAccount(AbstractUser, PermissionsMixin, BaseModel):
@@ -69,7 +80,7 @@ class UserAccount(AbstractUser, PermissionsMixin, BaseModel):
 
     username = models.CharField(
         _("username"),
-        max_length=150,
+        max_length=50,
         null=False,
         blank=False,
         unique=True,
@@ -78,16 +89,16 @@ class UserAccount(AbstractUser, PermissionsMixin, BaseModel):
             "unique": _("A user with that username already exists."),
         },
     )
-    first_name = models.CharField(max_length=150, null=False, blank=False)
-    last_name = models.CharField(max_length=150, null=False, blank=False)
+    first_name = models.CharField(max_length=50, null=False, blank=False)
+    last_name = models.CharField(max_length=50, null=False, blank=False)
     email = models.EmailField(db_index=True, max_length=255, unique=True)
     # password = models.CharField(max_length=32, null=False, blank=False)
     phone_number = models.CharField(
         max_length=20,
         validators=[validate_phone_number],
         unique=True,
-        blank=False,
-        null=False,
+        blank=True,
+        null=True,
     )
     is_active = models.BooleanField(
         _("Activate Account"),
@@ -95,6 +106,12 @@ class UserAccount(AbstractUser, PermissionsMixin, BaseModel):
         help_text=_(
             "Designates whether the user has completed validation and is active."
         ),
+    )
+    channel = models.CharField(
+        _("Channel"),
+        choices=CHANNELS,
+        default="email",
+        help_text=_("Select channel from which the user was created."),
     )
     regToken = models.CharField(
         _("Token"),
@@ -107,6 +124,7 @@ class UserAccount(AbstractUser, PermissionsMixin, BaseModel):
     REQUIRED_FIELDS = ["email", "first_name", "last_name"]
 
     objects = UserManager()
+    admin_objects = CustomAdminManager() # manager for admin
 
     def __str__(self):
         return self.email
@@ -159,7 +177,6 @@ class CustomToken(Token):
     id = models.UUIDField(
         _("ID"), default=uuid.uuid4, editable=False, unique=True, primary_key=True
     )
-    key = models.CharField(_("Key"), max_length=40)
     expiry_date = models.DateTimeField(null=False, blank=False)
     verified_on = models.DateTimeField(null=True, blank=True)
 

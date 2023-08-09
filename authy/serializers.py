@@ -1,5 +1,6 @@
 import logging
 from base64 import urlsafe_b64encode
+import uuid
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import update_last_login
@@ -13,10 +14,16 @@ from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt import serializers as jwt_serializers
+from rest_framework_simplejwt.tokens import RefreshToken
 
-from affily.settings import AXES_COOLOFF_TIME, AXES_FAILURE_LIMIT
 from authy.backends.custom_auth_backend import CustomBackend
-from authy.exceptions import AccountLocked
+from common.exceptions import AccountLocked, AlreadyExists
+from authy.helpers.helper import (
+    TwitterSignIn,
+    allowed_providers,
+    facebook_social_check,
+    GoogleSignIn
+)
 from authy.models import CustomToken, UserAccount
 from authy.signals import user_created
 from authy.utilities.constants import admin_support_sender, email_sender
@@ -102,8 +109,8 @@ class ConfirmEmailSerializer(serializers.Serializer):
                 CustomToken.objects.filter(
                     user=instance.user, key=instance.key
                 ).update(
-                    key=token,
-                    expiry_date=F("created"),
+                    # key=token, # can't update PK
+                    expiry_date=instance.created,
                     verified_on=timezone.localtime(),
                 )
                 UserAccount.objects.filter(uid=instance.user.uid).update(
@@ -350,48 +357,6 @@ class CustomTokenSerializer(jwt_serializers.TokenObtainPairSerializer):
             "2fa_required": False,
         }
 
-    # def check_lockout(self, request, user_obj):
-    #     """
-    #     Check if the user is locked out based on their access attempts.
-
-    #     Args:
-    #         request: The request object.
-    #         user_obj: The user object.
-
-    #     Returns:
-    #         A tuple containing a boolean indicating if the user is locked out and
-    #         an `AccessAttempt` object if found, otherwise `None`.
-    #     """
-    #     access_attempt = (
-    #         AccessAttempt.objects.filter(username=user_obj.username)
-    #         .order_by("-attempt_time")
-    #         .first()
-    #     )
-
-    #     if (
-    #         access_attempt
-    #         and access_attempt.failures_since_start >= AXES_FAILURE_LIMIT
-    #     ):
-    #         lockout_start_time = access_attempt.attempt_time
-    #         cooloff_period = timedelta(seconds=AXES_COOLOFF_TIME)
-
-    #         lockout_end_time = lockout_start_time + cooloff_period
-    #         remaining_time = max(lockout_end_time - timezone.now(), timedelta())
-
-    #         if remaining_time.total_seconds() > 0:
-    #             return (
-    #                 False,
-    #                 (
-    #                     "Account locked."
-    #                     f"Try again after {int(remaining_time.total_seconds())} second"
-    #                 ),
-    #             )
-
-    #     return (
-    #         True,
-    #         access_attempt,
-    #     )  # access_attempt can be None if no obj is found
-
 
 class LoginWith2faTokenSerializer(serializers.Serializer):
     username = serializers.CharField(required=False)
@@ -553,3 +518,66 @@ class ResetPasswordSerializer(serializers.ModelSerializer):
 
 class LogoutSerializer(serializers.Serializer):
     refresh_token = serializers.CharField()
+
+
+class SocialSignUpSerializer(serializers.Serializer):
+    access_token = serializers.CharField(required=True)
+    access_token_secret = serializers.CharField(required=False)
+    oauth_callback_confirmed = serializers.BooleanField(required=False)
+
+    def get_provider_class(self, provider, data):
+        provider_dict = {
+            "google": (GoogleSignIn, "save_user_info"),
+            "facebook": (TwitterSignIn, "twitter_social_check"),
+            "twitter": twitter_social_check,
+        }
+
+        if res := provider_dict.get(provider.lower()):
+            class_name, method = res
+            instance = class_name()
+            if hasattr(instance, method):
+                return getattr(instance, method)(data)
+
+        return None
+
+    # def validate(self, data):
+    #     provider = self.context.get("provider")
+    #     if not provider or not data["access_token"]:
+    #         raise serializers.ValidationError(
+    #             "Provider and access_token are required."
+    #         )
+
+    #     return data
+
+    def validate_provider(self, data):
+        if not allowed_providers(data):
+            raise serializers.ValidationError(f"Invalid provider {data}")
+
+    def create(self, validated_data):
+        try:
+            return self.get_provider_class(
+                self.context.get("provider"), validated_data
+            )
+        except Exception as e:
+            raise serializers.ValidationError(e) from e
+
+        # if not social_account:
+        #     raise serializers.ValidationError(
+        #         "Invalid or expired access token. Please try again later"
+        #     )
+
+        # if (
+        #     social_account.get("email_verified") == True
+        #     and UserModel.objects.filter(email=social_account.get("email")).exists()
+        # ):
+        #     raise AlreadyExists("Email account already exists")
+
+        # return UserModel.objects.create(
+        #     username=(
+        #         f"{social_account.get('given_name')[:4]}_{str(uuid.uuid4())[:8]}"
+        #     ),
+        #     email=social_account.get("email"),
+        #     first_name=social_account.get("given_name"),
+        #     last_name=social_account.get("family_name"),
+        #     is_active=True,
+        # )

@@ -5,6 +5,16 @@ from authy.utilities.mail.send_mail import send_mail_now
 
 logger = logging.getLogger("app")
 
+# class BaseTaskWithRetry(celery.Task):
+#     autoretry_for = (Exception, KeyError)
+#     retry_kwargs = {'max_retries': 5}
+#     retry_backoff = True
+
+
+# @shared_task(bind=True, base=BaseTaskWithRetry)
+# def task_process_notification(self):
+#     raise Exception()
+
 
 @app.task()
 def send_email_confirmation_mail(email_content, context):

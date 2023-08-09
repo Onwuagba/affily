@@ -6,7 +6,9 @@ import hashlib
 def hash_string(data: str):
     hash_algorithm = hashlib.sha256()
     hash_algorithm.update(data.encode("utf8"))
-    return (hash_algorithm.digest()[:8]).hex() # picking the first 8 char cos token model allows only 16
+    return (
+        hash_algorithm.digest()[:8]
+    ).hex()  # picking the first 8 char cos token model allows only 16
 
 
 # def decrypt_string(encrypted: bytes, key: bytes) -> str:

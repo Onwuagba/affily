@@ -18,11 +18,13 @@ class CustomAdmin(UserAdmin):
         "email",
         "first_name",
         "last_name",
+        "channel",
         "is_active",
         "created_at",
     )
 
     list_filter = (
+        "channel",
         "is_staff",
         "is_superuser",
         "is_active",
@@ -49,6 +51,7 @@ class CustomAdmin(UserAdmin):
             _("Superadmin checks"),
             {
                 "fields": (
+                    "channel",
                     "is_deleted",
                     "is_active",
                     "is_superuser",
@@ -59,7 +62,7 @@ class CustomAdmin(UserAdmin):
     )
 
     fieldsets = (
-        (None, {"fields": ("username", "password")}),
+        (None, {"fields": ("username", "password1", "password2")}),
         (
             _("Personal info"),
             {"fields": ("first_name", "last_name", "phone_number", "email")},
@@ -83,7 +86,7 @@ class CustomAdmin(UserAdmin):
         ),
     )
 
-    readonly_fields = ["date_joined", "last_login", "created_at", "updated_at"]
+    readonly_fields = ["channel", "date_joined", "last_login", "created_at", "updated_at"]
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
@@ -146,6 +149,14 @@ class CustomAdmin(UserAdmin):
                 ),
             )
         return super().get_fieldsets(request, obj)
+    
+    def get_queryset(self, request):
+        qs = UserAccount.admin_objects.get_queryset()
+        # If the logged-in user is a staff user
+        # exclude superusers from the queryset so they can't alter SU info
+        if not request.user.is_superuser:
+            qs = qs.filter(is_superuser=False)
+        return qs
 
     def save_model(self, request: Any, obj: Any, form: Any, change: Any) -> None:
         """

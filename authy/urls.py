@@ -14,6 +14,8 @@ from authy.views import (
     RegenerateEmailVerificationView,
     RegisterAPIView,
     ResetPasswordView,
+    SocialLogin1View,
+    SocialSignUpView,
 )
 
 app_name = "auth"
@@ -46,4 +48,21 @@ urlpatterns = [
     path("validate_token/", TokenVerifyView.as_view(), name="validate"),
     path("logout/", LogoutView.as_view(), name="logout"),
     path("reset_password/", ResetPasswordView.as_view(), name="reset_password"),
+    # social
+    path(
+        "social/signup/<str:provider>/",
+        SocialSignUpView.as_view(),
+        name="social_signup",
+    ),
+    path(
+        "social/login/<str:provider>/",
+        SocialLogin1View.as_view(),
+        name="social_login",
+    ),
+    # path("socialsignup/", signup, name="socialaccount_signup"),
+    # path("google/", GoogleLogin.as_view(), name="google_login"),
+    # path("twitter/", TestLogin().get_user_info('ya29.a0AbVbY6N2w6q8bT54x0LfTBODlv0YmNtz4BQvnH1PaTh2663gXKUJYvvx78xzPh4I1PgargcQdpiny21xufHQP7qF44W0XSeojmZPOUE3cCNDjGBz5qxEvJczK2Mh-iapebBLk4WQWxB6Vi2ed9S_7f7JNbKQaCgYKAYcSARMSFQFWKvPl4fGv62QoIbRvkEDBpWoZ8Q0163'), name="boy"),
+    # path("~redirect/", view=UserRedirectView.as_view(), name="redirect"),
 ]
+
+from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter

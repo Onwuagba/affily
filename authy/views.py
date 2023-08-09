@@ -1,10 +1,23 @@
+import base64
+import json
 import logging
 from base64 import urlsafe_b64decode
+import uuid
 
+from allauth.socialaccount.models import SocialAccount, SocialApp, SocialToken
+from allauth.socialaccount.providers.facebook.views import FacebookOAuth2Adapter
+from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
+from allauth.socialaccount.providers.oauth2.client import OAuth2Client, OAuth2Error
+from allauth.socialaccount.providers.twitter.views import TwitterOAuthAdapter
+from dj_rest_auth.registration.views import SocialLoginView
 from django.contrib.auth import get_user_model, logout
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.tokens import default_token_generator
 from django.db.models import Q
+from django.urls import reverse
 from django.utils import timezone
+from django.views.generic import RedirectView
+import requests
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.generics import CreateAPIView, UpdateAPIView
@@ -16,10 +29,10 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from authy.api_response import CustomAPIResponse
-from authy.exceptions import AccountLocked
+from common.exceptions import AccountLocked, AlreadyExists
 from authy.generics import check_email_username
-from authy.models import CustomToken, UserAccount
-from authy.permissions import IsAuthenticated
+from authy.models import CustomToken
+from common.permissions import IsAuthenticated
 from authy.serializers import (
     ChangePasswordSerializer,
     ConfirmEmailSerializer,
@@ -31,12 +44,14 @@ from authy.serializers import (
     RegenerateEmailVerificationSerializer,
     RegistrationSerializer,
     ResetPasswordSerializer,
+    SocialSignUpSerializer,
 )
 from authy.utilities.constants import admin_support_sender, email_sender
 from authy.utilities.tasks import send_notif_email
 from two_fa.permissions import OtpRequired
 
 logger = logging.getLogger("app")
+UserModel = get_user_model()
 
 
 class Home(APIView):
@@ -105,7 +120,7 @@ class ConfirmEmailView(UpdateAPIView):
             raise ValidationError("Invalid confirmation link.")
 
         uid = urlsafe_b64decode(uid).decode("utf-8")
-        user = UserAccount.objects.filter(uid=uid).first()
+        user = UserModel.objects.filter(uid=uid).first()
         token_obj = CustomToken.objects.filter(key=token).first()
 
         if not user or not token_obj or token_obj.user != user:
@@ -253,8 +268,7 @@ class ChangePasswordView(UpdateAPIView):
                 code_status = "success"
                 status_code = status.HTTP_200_OK
             else:
-                for error in serializer.errors:
-                    message = error
+                message = serializer.errors
                 code_status = "failed"
                 status_code = status.HTTP_400_BAD_REQUEST
         except Exception as e:
@@ -501,8 +515,8 @@ class ResetPasswordView(UpdateAPIView):
 
     permission_classes = (IsAuthenticated,)
     serializer_class = ResetPasswordSerializer
-    http_method_names = ['patch']
-    
+    http_method_names = ["patch"]
+
     def get_object(self):
         return self.request.user
 
@@ -528,3 +542,192 @@ class ResetPasswordView(UpdateAPIView):
 
         response = CustomAPIResponse(message, status_code, code_status)
         return response.send()
+
+
+## Process for social signin ##
+# User clicks on the desired social login button and is redirected to provider page
+# User authenticates with provider and authorises access
+# if authentication is successful, user is redirected to a website page (defined by me)
+# On this page, I extract access token, connect to provider and get user details
+# I then use this detail to get info about the user and create_or_sretrive in my DB
+
+
+# class GoogleLogin(SocialLoginView):
+#     adapter_class = GoogleOAuth2Adapter
+#     client_class = OAuth2Client
+
+
+# class TestLogin(APIView):
+#     def get_user_info(self, access_token):
+#         url = "https://www.googleapis.com/oauth2/v3/userinfo"
+#         headers = {"Authorization": f"Bearer {access_token}"}
+
+#         response = requests.get(url, headers=headers, verify=False)
+
+#         return response.json() if response.status_code == 200 else None
+
+#     def get(self, **kwargs):
+#         # access_token = kwargs.get('access_token')
+#         self.get_user_info(
+#             "ya29.a0AbVbY6N2w6q8bT54x0LfTBODlv0YmNtz4BQvnH1PaTh2663gXKUJYvvx78xzPh4I1PgargcQdpiny21xufHQP7qF44W0XSeojmZPOUE3cCNDjGBz5qxEvJczK2Mh-iapebBLk4WQWxB6Vi2ed9S_7f7JNbKQaCgYKAYcSARMSFQFWKvPl4fGv62QoIbRvkEDBpWoZ8Q0163"
+#         )
+
+
+# class UserRedirectView(LoginRequiredMixin, RedirectView):
+#     """
+#     This view is needed by the dj-rest-auth-library in order to work the google login. It's a bug.
+#     """
+
+#     permanent = False
+
+#     def get_redirect_url(self):
+#         return "redirect-url"
+
+
+class SocialSignUpView(CreateAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = SocialSignUpSerializer
+
+    def post(self, request, **kwargs):
+        try:
+            serializer = self.serializer_class(
+                data=request.data, context={"provider": kwargs.get("provider")}
+            )
+            if serializer.is_valid(raise_exception=True):
+                user = serializer.save()
+                # for Twitter, we return the authorisation URL
+                # Then complete user creation
+                if isinstance(user, UserModel):
+                    refresh = RefreshToken.for_user(user)
+                    return Response(
+                        {
+                            "refresh": str(refresh),
+                            "access": str(refresh.access_token),
+                        },
+                        status=status.HTTP_201_CREATED,
+                    )
+                else:
+                    message = user
+                    code_status = "success"
+                    status_code = status.HTTP_200_OK
+            else:
+                message = serializer.errors
+                code_status = "failed"
+                status_code = status.HTTP_400_BAD_REQUEST
+
+        except (ValidationError, Exception) as exc:
+            message = exc.args[0]
+            code_status = "failed"
+            status_code = (
+                status.HTTP_409_CONFLICT
+                if isinstance(exc, AlreadyExists)
+                else status.HTTP_400_BAD_REQUEST
+            )
+
+        response = CustomAPIResponse(message, status_code, code_status)
+        return response.send()
+
+
+class SocialLogin1View(APIView):
+    permission_classes = [AllowAny]
+
+    def get_adapter(self, service):
+        adapter = {
+            "facebook": FacebookOAuth2Adapter,
+            "google": GoogleOAuth2Adapter,
+            "twitter": TwitterOAuthAdapter,
+        }
+        return adapter.get(service)
+
+    def allowed_providers(self, provider):
+        providers = {"facebook", "twitter", "google"}
+        return provider in providers
+
+    def get(self, request, **kwargs):
+        provider = kwargs.get("provider")
+        access_token = request.data.get("access_token")
+
+        if not provider or not access_token:
+            response = CustomAPIResponse(
+                "Provider and access_token are required.",
+                status.HTTP_400_BAD_REQUEST,
+                "failed",
+            )
+            return response.send()
+
+        if not self.allowed_providers(provider):
+            response = CustomAPIResponse(
+                "Provider not profiled yet.", status.HTTP_400_BAD_REQUEST, "failed"
+            )
+            return response.send()
+
+        adapter = self.get_adapter(provider)
+
+        if not adapter:
+            response = CustomAPIResponse(
+                "No adapter for selected service.",
+                status.HTTP_400_BAD_REQUEST,
+                "failed",
+            )
+            return response.send()
+
+        adapter_class = adapter(request)
+
+        try:
+            app = SocialApp.objects.get(provider=provider)
+            token = adapter_class.parse_token(request.data)
+            # login_token = adapter_class.unstash_token(token)
+            # client = adapter_class.get_client_class()(request)
+            # token = client.exchange_token(login_token)
+        except (ValueError, OAuth2Error):
+            response = CustomAPIResponse(
+                "Invalid access_token or provider.",
+                status.HTTP_400_BAD_REQUEST,
+                "failed",
+            )
+            return response.send()
+
+        segments = token.token.split(".")
+
+        # if (len(segments) != 3):
+        #     raise ValidationError('Wrong number of segments in token')
+
+        b64string = segments[1]
+        b64string = b64string.encode("ascii")
+
+        # Remove padding characters from the base64 string
+        while len(b64string) % 4 != 0:
+            b64string += b"="
+
+        padded = base64.urlsafe_b64decode(b64string)
+        decoded = base64.b64decode(padded)
+        json.loads(decoded)
+
+        try:
+            token.account and (
+                social_account := SocialAccount.objects.filter(
+                    provider=provider, uid=token.account.uid
+                ).first()
+            )
+
+            # Retrieve the user associated with the social account
+            user_instance = social_account.user
+        except Exception:
+            # User does not exist, create a new user
+            user_instance = UserModel.objects.create_user(
+                email=token["email"],
+                password=get_user_model().objects.make_random_password(),
+            )
+            user_instance.is_active = True
+            user_instance.save()
+        # except Exception as e:
+        #     raise ValidationError("BLOOOD") from e
+
+        # Generate JWT tokens
+        refresh = RefreshToken.for_user(user_instance)
+        tokens = {
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+        }
+
+        return Response(tokens, status=200)

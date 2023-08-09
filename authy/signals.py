@@ -20,7 +20,7 @@ user_created = Signal()
 def send_email_on_user_creation(sender, instance, created, request, **kwargs):
     if created:
         email_content = {
-            "subject": "Hallo 👋 Please confirm your account on Affily",
+            "subject": "Halo 👋 Please confirm your account on Affily",
             "sender": email_sender,
             "recipient": instance.email,
             "template": "verify-account.html",
@@ -43,6 +43,9 @@ def send_email_on_user_creation(sender, instance, created, request, **kwargs):
 
             uid = urlsafe_base64_encode(force_bytes(instance.pk))
             domain = get_current_site(request).domain
+            # domain = request.get_host() # does same as above. 
+            # get_current_site uses the sites framework and gets the domain defined
+            # django admin SITES app
             confirm_url = reverse(
                 "auth:confirm_email", kwargs={"uid": uid, "token": token}
             )

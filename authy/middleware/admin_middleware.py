@@ -6,7 +6,7 @@ from django.utils import timezone
 
 class AutoLogoutMiddleware:
     """
-    Middleware to auto logout the admin after 5 mins of inactivity
+    Middleware to logout admin after 5 mins of inactivity
     """
 
     def __init__(self, get_response):

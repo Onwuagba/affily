@@ -23,3 +23,5 @@ logs/**
 coverage.xml
 migrations/
 otp_sample.png
+authy/sample.py
+.TODO
