@@ -213,8 +213,13 @@ CELERY_TIMEZONE = "Africa/Lagos"
 #  'flush-expired-tokens': {
 #        'task': 'common.utilities.tasks.flush_expired_tokens',
 #        'schedule': crontab(hour=1, minute=0), # 1 AM daily
+#     },
+#  'delete_empty_log_files': {
+#        'task': 'common.utilities.tasks.delete_empty_log_files',
+#        'schedule': crontab(hour=0, minute=30), # 12:30 AM daily
 #     }
 # }
+
 
 # Email configuration
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND")
