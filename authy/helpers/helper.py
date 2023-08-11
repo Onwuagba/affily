@@ -14,12 +14,14 @@ from django.contrib.auth import get_user_model
 from dotenv import load_dotenv
 from requests_oauthlib import OAuth1Session
 from rest_framework.exceptions import ValidationError
+import logging
 
 from common.exceptions import AlreadyExists
 
 load_dotenv()
 
 UserModel = get_user_model()
+logger = logging.getLogger("app")
 
 
 def allowed_providers(provider):
@@ -35,9 +37,15 @@ class GoogleSignIn:
 
         url = "https://www.googleapis.com/oauth2/v3/userinfo"
         headers = {"Authorization": f"Bearer {access_token}"}
-        response = requests.get(url, headers=headers, verify=False)
-        print(response.text)
-        return response.json() if response.status_code == 200 else None
+        try:
+            response = requests.get(url, headers=headers, verify=False)
+            print(response.text)
+            return response.json() if response.status_code == 200 else None
+        except Exception as e:
+            logger.error(e)
+            if isinstance(e.args[0], str):
+                raise ValidationError(e.args[0]) from e
+            raise ValidationError("Error logging in with Google") from e
 
     def save_user_info(self, data):
         response = self.google_social_check(data)

@@ -530,7 +530,7 @@ class SocialSignUpSerializer(serializers.Serializer):
         provider_dict = {
             "google": (GoogleSignIn, "save_user_info"),
             "facebook": (TwitterSignIn, "twitter_social_check"),
-            "twitter": twitter_social_check,
+            # "twitter": twitter_social_check,
         }
 
         if res := provider_dict.get(provider.lower()):
