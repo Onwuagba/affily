@@ -16,8 +16,8 @@ from django.utils.translation import gettext_lazy as _
 from rest_framework.authtoken.models import Token
 
 from affily.settings import AXES_COOLOFF_TIME, AXES_FAILURE_LIMIT
-from authy.validators import validate_phone_number
 from authy.utilities.constants import CHANNELS
+from authy.validators import validate_phone_number
 
 
 class BaseModel(models.Model):
@@ -143,7 +143,7 @@ class UserAccount(AbstractUser, PermissionsMixin, BaseModel):
             an `AccessAttempt` object if found, otherwise `None`.
         """
         access_attempt = (
-            AccessAttempt.objects.filter(username=self.username)
+            AccessAttempt.objects.filter(username__iexact=self.username)
             .order_by("-attempt_time")
             .first()
         )

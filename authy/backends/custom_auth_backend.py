@@ -1,9 +1,13 @@
 import contextlib
+import datetime
+from datetime import timedelta
 
+from axes.models import AccessAttempt
 from axes.signals import user_login_failed
 from django.contrib.auth import get_user_model
 from django.contrib.auth.backends import ModelBackend
 from django.db.models import Q
+from django.utils import timezone
 
 UserModel = get_user_model()
 
@@ -28,11 +32,29 @@ class CustomBackend(ModelBackend):
             )
         if user and user.check_password(password):
             return user
-        else:
-            # Send failure signal to AxesBackend
-            user_login_failed.send(
-                sender=UserModel,
-                request=request,
-                credentials={"username": username},
-            )
+
+        # Send failure signal to AxesBackend
+        self.check_axes_backend(username)
+        user_login_failed.send(
+            sender=UserModel,
+            request=request,
+            credentials={"username": username},
+        )
         return None
+
+    def check_axes_backend(self, username):
+        """
+        Delete user attempt from Axes db if attempt was made more than 1 hour ago.
+        This is basically to ensure that user is only blocked if several attempts are made within one hour.
+
+        Parameters:
+            username (str): The username for which to check the access attempt.
+
+        Returns:
+            None
+        """
+
+        if user := AccessAttempt.objects.filter(username__iexact=username).first():
+            time_diff = timezone.localtime() - user.attempt_time
+            if time_diff > timedelta(hours=1):
+                user.delete()

@@ -15,8 +15,8 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.views import APIView
 
 from authy.api_response import CustomAPIResponse
-from common.permissions import IsAuthenticated
 from authy.utilities.constants import email_sender
+from common.permissions import IsAuthenticated
 from notification.utilities.tasks import send_notification_email
 from two_fa.models import CustomTOTPDeviceModel
 from two_fa.permissions import OtpRequired
@@ -68,7 +68,7 @@ def custom_verify(user, otp, request=None):
                 - If no device is found for the user, the message is set to "No device found for this user".
 
     """
-    if not otp or not otp.isdigit() or len(otp) not in (6, 8):
+    if not otp or len(otp) not in (6, 8):
         return False, "otp is not valid"
 
     device = get_user_totp_device(user)
@@ -85,7 +85,7 @@ def custom_verify(user, otp, request=None):
     # instead of calling 2 endpoints (otplogin & lostdevicelogin)
     # combine both and check whichever one the user provides
     # check attached image from gitlab 2fa (otp_sample.png)
-    res, msg = custom_verify_backup_code(user, otp)
+    res, msg = custom_verify_backup_code(user, otp, request)
     if res:
         CustomTOTPDeviceModel.objects.create(
             user_device=msg, endpoint=request.path if request else None
@@ -95,7 +95,7 @@ def custom_verify(user, otp, request=None):
     return False, "Invalid otp"
 
 
-def custom_verify_backup_code(user, code):
+def custom_verify_backup_code(user, code, request=None):
     # code: recovery code
     res = False
     message = "Invalid code"
@@ -110,6 +110,9 @@ def custom_verify_backup_code(user, code):
     # compare the hashed value of the code with the hashed value stored in db
     decrypted_code = hash_string(code)
     if device and device.verify_token(decrypted_code):
+        CustomTOTPDeviceModel.objects.create(
+            user_device=device, endpoint=request.path if request else None
+        )
         res = True
         message = device
 
@@ -251,6 +254,7 @@ class TOTPVerifyView(APIView):
     """
 
     permission_classes = [IsAuthenticated]
+    http_method_names = ["post"]
 
     def post(self, request):
         message = "Invalid otp"
@@ -280,7 +284,7 @@ class TOTPVerifyView(APIView):
 
 class BackupCodesCreateView(APIView):
     permission_classes = [OtpRequired]
-    number_of_static_tokens = 8
+    number_of_static_tokens = int(os.getenv("NUMBER_OF_RECOVERY_KEY"))
 
     def post(self, request):
         status_code = status.HTTP_400_BAD_REQUEST
@@ -327,6 +331,16 @@ class AccessOTPServiceWithLostDevice(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, otp):
+        """
+        POST method for the API.
+
+        Args:
+            request (Request): The request object.
+            otp (str): The one-time password.
+
+        Returns:
+            CustomAPIResponse: The response object.
+        """
         user = request.user
 
         if not user or user.is_deleted or not user.is_active:
@@ -336,7 +350,7 @@ class AccessOTPServiceWithLostDevice(APIView):
                 "failed",
             ).send()
 
-        stat, otp_message = custom_verify_backup_code(user, otp)
+        stat, otp_message = custom_verify_backup_code(user, otp, request)
         message = otp_message
 
         if stat:

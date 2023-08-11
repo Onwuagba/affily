@@ -36,7 +36,7 @@ def send_email_on_user_creation(sender, instance, created, request, **kwargs):
             # Called from regenerate email verification endpoint
             if not new_obj:
                 token.created = timezone.localtime()
-                token.key = tokenModel.generate_key()
+                # token.key = tokenModel.generate_key()
                 token.verified_on = None
                 token.expiry_date = tokenModel.create_expiry_date(token.created)
                 token.save()

@@ -1,6 +1,6 @@
 import logging
-from base64 import urlsafe_b64encode
 import uuid
+from base64 import urlsafe_b64encode
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import update_last_login
@@ -17,17 +17,17 @@ from rest_framework_simplejwt import serializers as jwt_serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from authy.backends.custom_auth_backend import CustomBackend
-from common.exceptions import AccountLocked, AlreadyExists
 from authy.helpers.helper import (
+    GoogleSignIn,
     TwitterSignIn,
     allowed_providers,
     facebook_social_check,
-    GoogleSignIn,
 )
 from authy.models import CustomToken, UserAccount
 from authy.signals import user_created
 from authy.utilities.constants import admin_support_sender, email_sender
 from authy.utilities.tasks import send_notif_email
+from common.exceptions import AccountLocked, AlreadyExists
 from two_fa.views import (
     custom_verify,
     custom_verify_backup_code,
@@ -105,7 +105,7 @@ class ConfirmEmailSerializer(serializers.Serializer):
     def update(self, instance, validated_data):
         with transaction.atomic():
             try:
-                token = CustomToken.generate_key()
+                # token = CustomToken.generate_key()
                 CustomToken.objects.filter(
                     user=instance.user, key=instance.key
                 ).update(
@@ -177,7 +177,7 @@ class ForgotPasswordSerializer(serializers.Serializer):
             "recipient": user.email,
             "template": "forgot_password.html",
         }
-        reset_url = request.build_absolute_uri(f"new_password/{uid}/{token}")
+        reset_url = request.build_absolute_uri(f"update/{uid}/{token}/")
         print(reset_url)
         context = {"username": user.username, "url": reset_url}
         logger.info(f"context for forgot email to be sent: {user.username}")
@@ -300,8 +300,7 @@ class CustomTokenSerializer(jwt_serializers.TokenObtainPairSerializer):
         }
 
         try:
-            # authenticate_kwargs["request"] = req
-            user = CustomBackend().authenticate(self, **authenticate_kwargs)
+            user = CustomBackend().authenticate(req, **authenticate_kwargs)
             if not user or user.is_deleted:
                 raise AuthenticationFailed("No account found with this credential")
 
@@ -373,9 +372,9 @@ class LoginWith2faTokenSerializer(serializers.Serializer):
         if not username and not email:
             raise ValidationError("Username or email must be provided.")
 
-        user = UserModel.objects.get(
+        user = UserModel.objects.filter(
             Q(username=username) | Q(email=username), is_deleted=False
-        )
+        ).first()
 
         if not user:
             raise ValidationError("Invalid username or email.")
@@ -404,7 +403,7 @@ class LoginWith2faTokenSerializer(serializers.Serializer):
 
     def validate_otp(self, value):
         # default otp field validation
-        if value.isnumeric() and len(value) in {6, 8}:
+        if len(value) in {6, 8}:
             return value
         else:
             raise ValidationError("Invalid OTP format.")
@@ -429,9 +428,9 @@ class LoginWithLost2faDeviceTokenSerializer(serializers.Serializer):
         if not username and not email:
             raise ValidationError("Username or email must be provided.")
 
-        user = UserModel.objects.get(
+        user = UserModel.objects.filter(
             Q(username=username) | Q(email=username), is_deleted=False
-        )
+        ).first()
 
         if not user:
             raise ValidationError("Invalid username or email.")
@@ -459,7 +458,9 @@ class LoginWithLost2faDeviceTokenSerializer(serializers.Serializer):
         raise ValidationError(msg)
 
     def verify_user_otp(self, user, otp):
-        stat, otp_message = custom_verify_backup_code(user, otp)
+        stat, otp_message = custom_verify_backup_code(
+            user, otp, self.context["request"]
+        )
         return (True, "") if stat else (False, otp_message)
 
 
@@ -487,7 +488,7 @@ class ResetPasswordSerializer(serializers.ModelSerializer):
         if data.get("password") != data.get("confirm_password"):
             error["password"] = "Your passwords do not match"
         if not user.check_password(data.get("old_password")):
-            error["password"] = "Your old password is not valid"
+            error["password"] = "Old password not valid"
         if data.get("password") == data.get("old_password"):
             error["password"] = "New password cannot be same as old password"
 

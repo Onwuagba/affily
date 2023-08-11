@@ -15,7 +15,7 @@ urlpatterns = [
     path("verify/", TOTPVerifyView.as_view(), name="totp-verify"),
     path("deactivate/", TOTPDeleteView.as_view(), name="totp-deactivate"),
     path(
-        "complete_deactivate/<str:uid>/<str:token>",
+        "deactivate/complete_deactivate/<str:uid>/<str:token>",
         TOTPCompleteDeleteView.as_view(),
         name="totp-deactivate-complete",
     ),

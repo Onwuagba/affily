@@ -1,9 +1,10 @@
 import base64
 import json
 import logging
-from base64 import urlsafe_b64decode
 import uuid
+from base64 import urlsafe_b64decode
 
+import requests
 from allauth.socialaccount.models import SocialAccount, SocialApp, SocialToken
 from allauth.socialaccount.providers.facebook.views import FacebookOAuth2Adapter
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
@@ -17,7 +18,6 @@ from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
 from django.views.generic import RedirectView
-import requests
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.generics import CreateAPIView, UpdateAPIView
@@ -29,10 +29,8 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from authy.api_response import CustomAPIResponse
-from common.exceptions import AccountLocked, AlreadyExists
 from authy.generics import check_email_username
 from authy.models import CustomToken
-from common.permissions import IsAuthenticated
 from authy.serializers import (
     ChangePasswordSerializer,
     ConfirmEmailSerializer,
@@ -48,6 +46,8 @@ from authy.serializers import (
 )
 from authy.utilities.constants import admin_support_sender, email_sender
 from authy.utilities.tasks import send_notif_email
+from common.exceptions import AccountLocked, AlreadyExists
+from common.permissions import IsAuthenticated
 from two_fa.permissions import OtpRequired
 
 logger = logging.getLogger("app")
@@ -166,6 +166,7 @@ class ConfirmEmailView(UpdateAPIView):
 class ForgotPasswordView(APIView):
     permission_classes = (AllowAny,)
     serializer_class = ForgotPasswordSerializer
+    http_method_names = ["post"]
 
     def post(self, request, **kwargs):
         """
@@ -247,10 +248,7 @@ class ChangePasswordView(UpdateAPIView):
             ) from e
 
         if not default_token_generator.check_token(user, token):
-            raise ValidationError(
-                "Reset password link has expired."
-                + " Please click the forgot password button to get a new link"
-            )
+            raise ValidationError("Reset password link has expired.")
 
         return user
 
@@ -387,6 +385,7 @@ class DeleteAccountView(APIView):
 class CustomTokenView(jwt_views.TokenObtainPairView):
     serializer_class = CustomTokenSerializer
     token_obtain_pair = jwt_views.TokenObtainPairView.as_view()
+    http_method_names = ["post"]
 
     def post(self, request, *args, **kwargs):
         try:
@@ -416,7 +415,12 @@ class CustomTokenView(jwt_views.TokenObtainPairView):
 
 
 class LoginWith2fa(APIView):
+    """
+    User hits login ednpoint first to obtain token before calling this endpoint
+    """
+
     serializer_class = LoginWith2faTokenSerializer
+    http_method_names = ["post"]
 
     def post(self, request, *args, **kwargs):
         try:
@@ -445,6 +449,7 @@ class LoginWith2fa(APIView):
 
 
 class LoginWithLostDevice(APIView):
+    # deprecating this as it is now taken care of in loginWith2fa
     """
     Endpoint for backup access if user loses their OTP device.
 
@@ -456,6 +461,7 @@ class LoginWithLostDevice(APIView):
     """
 
     serializer_class = LoginWithLost2faDeviceTokenSerializer
+    http_method_names = ["post"]
 
     def post(self, request, *args, **kwargs):
         try:
@@ -484,6 +490,7 @@ class LoginWithLostDevice(APIView):
 class LogoutView(APIView):
     permission_classes = (IsAuthenticated,)
     serializer_class = LogoutSerializer
+    http_method_names = ["post"]
 
     def post(self, request):
         try:
@@ -587,6 +594,7 @@ class ResetPasswordView(UpdateAPIView):
 class SocialSignUpView(CreateAPIView):
     permission_classes = [AllowAny]
     serializer_class = SocialSignUpSerializer
+    http_method_names = ["post"]
 
     def post(self, request, **kwargs):
         try:
@@ -630,6 +638,7 @@ class SocialSignUpView(CreateAPIView):
 
 class SocialLogin1View(APIView):
     permission_classes = [AllowAny]
+    http_method_names = ["get"]
 
     def get_adapter(self, service):
         adapter = {
