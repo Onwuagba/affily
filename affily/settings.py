@@ -15,6 +15,7 @@ import logging
 import os
 
 from dotenv import load_dotenv
+from celery.schedules import crontab
 
 from affily import utils
 
@@ -208,6 +209,10 @@ CELERY_TIMEZONE = "Africa/Lagos"
 #  'send-notification-every-10min': {
 #        'task': 'common.utilities.tasks.resend_welcome_email',
 #        'schedule': crontab(minute=0), # execute every hour
+#     },
+#  'flush-expired-tokens': {
+#        'task': 'common.utilities.tasks.flush_expired_tokens',
+#        'schedule': crontab(hour=1, minute=0), # 1 AM daily
 #     }
 # }
 

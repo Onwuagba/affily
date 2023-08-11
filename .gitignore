@@ -25,3 +25,6 @@ migrations/
 otp_sample.png
 authy/sample.py
 .TODO
+celerybeat-schedule.bak
+celerybeat-schedule.dat
+celerybeat-schedule.dir
