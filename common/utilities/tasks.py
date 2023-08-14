@@ -59,4 +59,4 @@ def delete_empty_log_files(self):
                         logger.info(f"Deleted empty log file: {file_path}")
 
     except Exception as e:
-        logger.exception(e)
+        logger.exception(f"Exception in deleting log file:{e}")

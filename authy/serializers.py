@@ -530,7 +530,7 @@ class SocialSignUpSerializer(serializers.Serializer):
         provider_dict = {
             "google": (GoogleSignIn, "save_user_info"),
             "facebook": (TwitterSignIn, "twitter_social_check"),
-            # "twitter": twitter_social_check,
+            # "twitter": '',
         }
 
         if res := provider_dict.get(provider.lower()):
@@ -539,7 +539,7 @@ class SocialSignUpSerializer(serializers.Serializer):
             if hasattr(instance, method):
                 return getattr(instance, method)(data)
 
-        return None
+        raise serializers.ValidationError(f"Error connecting to {provider}")
 
     # def validate(self, data):
     #     provider = self.context.get("provider")
@@ -550,17 +550,21 @@ class SocialSignUpSerializer(serializers.Serializer):
 
     #     return data
 
-    def validate_provider(self, data):
-        if not allowed_providers(data):
-            raise serializers.ValidationError(f"Invalid provider {data}")
+    def validate(self, data):
+        provider = self.context.get("provider")
+        if provider and not allowed_providers(provider):
+            raise serializers.ValidationError(f"Invalid provider {provider}")
+        return data
 
     def create(self, validated_data):
         try:
             return self.get_provider_class(
                 self.context.get("provider"), validated_data
             )
+        except AlreadyExists as ex:
+            raise ex
         except Exception as e:
-            raise serializers.ValidationError(e) from e
+            raise serializers.ValidationError(str(e)) from e
 
         # if not social_account:
         #     raise serializers.ValidationError(

@@ -36,11 +36,14 @@ class GoogleSignIn:
             raise ValidationError("access_token is required.")
 
         url = "https://www.googleapis.com/oauth2/v3/userinfo"
-        headers = {"Authorization": f"Bearer {access_token}"}
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+        }
         try:
             response = requests.get(url, headers=headers, verify=False)
             print(response.text)
-            return response.json() if response.status_code == 200 else None
+            return response.json()
         except Exception as e:
             logger.error(e)
             if isinstance(e.args[0], str):
@@ -50,7 +53,10 @@ class GoogleSignIn:
     def save_user_info(self, data):
         response = self.google_social_check(data)
         if not response:
-            return ValidationError("Error logging in with Google")
+            return ValidationError("Error confirming access with Google")
+
+        if "error_description" in response:
+            raise ValidationError(response["error_description"])
 
         if (
             response.get("email_verified") == True
