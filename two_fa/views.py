@@ -1,9 +1,11 @@
+from datetime import datetime
 import logging
 import os
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError
 from django_otp import devices_for_user
@@ -35,6 +37,16 @@ OTP_ENCRYPT_KEY = os.getenv("OTP_ENCRYPT_KEY").encode("utf-8")
 # User can deactive token
 # User can create recovery backup codes if they lose their device
 
+def get_or_create_custom_device(user_device, endpoint):
+    content_type = ContentType.objects.get_for_model(user_device)
+    custom_device, created = CustomTOTPDeviceModel.objects.get_or_create(
+        content_type=content_type,
+        object_id=user_device.id,
+        endpoint=endpoint,
+    )
+    if not created:
+        custom_device.updated_at = datetime.now()
+        custom_device.save()
 
 def get_user_static_device(user, confirmed=None):
     devices = devices_for_user(user, confirmed=confirmed)
@@ -77,7 +89,7 @@ def custom_verify(user, otp, request=None):
         return False, "No device found for this user"
 
     if device.verify_token(otp):
-        CustomTOTPDeviceModel.objects.create(
+        get_or_create_custom_device(
             user_device=device, endpoint=request.path if request else None
         )
         return True, device
@@ -87,7 +99,7 @@ def custom_verify(user, otp, request=None):
     # check attached image from gitlab 2fa (otp_sample.png)
     res, msg = custom_verify_backup_code(user, otp, request)
     if res:
-        CustomTOTPDeviceModel.objects.create(
+        get_or_create_custom_device(
             user_device=msg, endpoint=request.path if request else None
         )
         return True, msg
@@ -110,7 +122,7 @@ def custom_verify_backup_code(user, code, request=None):
     # compare the hashed value of the code with the hashed value stored in db
     decrypted_code = hash_string(code)
     if device and device.verify_token(decrypted_code):
-        CustomTOTPDeviceModel.objects.create(
+        get_or_create_custom_device(
             user_device=device, endpoint=request.path if request else None
         )
         res = True
@@ -141,7 +153,7 @@ class TOTPCreateView(APIView):
             confirmed=False,
             name=request.data.get("name") or None,
         )
-        CustomTOTPDeviceModel.objects.get_or_create(
+        get_or_create_custom_device(
             user_device=device, endpoint=request.path
         )
         message = device.config_url

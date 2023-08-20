@@ -1,10 +1,11 @@
-from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from rest_framework.exceptions import ValidationError
 
 
 class CustomTOTPDeviceModel(models.Model):
+    # records the date 2fa was set up
     # not using the normal FK method cos I want model to be related to either TOTPDevice or StaticDeviceModel
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.PositiveIntegerField()
@@ -18,6 +19,11 @@ class CustomTOTPDeviceModel(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["content_type", "object_id"]),
+        ]
 
     def clean(self):
         from django.apps import apps
