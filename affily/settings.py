@@ -15,7 +15,6 @@ import logging
 import os
 
 from dotenv import load_dotenv
-from celery.schedules import crontab
 
 from affily import utils
 
@@ -268,7 +267,7 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
     ],
-    "DEFAULT_THROTTLE_RATES": {"anon": "150/day", "user": "400/day"},
+    "DEFAULT_THROTTLE_RATES": {"anon": "15/day", "user": "800/day"},
 }
 
 # OTP config

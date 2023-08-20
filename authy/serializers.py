@@ -1,5 +1,4 @@
 import logging
-import uuid
 from base64 import urlsafe_b64encode
 
 from django.contrib.auth import get_user_model
@@ -9,12 +8,12 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.db import transaction
-from django.db.models import F, Q
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt import serializers as jwt_serializers
-from rest_framework_simplejwt.tokens import RefreshToken
+# from rest_framework_simplejwt.tokens import RefreshToken
 
 from authy.backends.custom_auth_backend import CustomBackend
 from authy.helpers.helper import (

@@ -1,10 +1,5 @@
-import base64
-import hashlib
-import hmac
-import json
 import os
 import secrets
-import time
 import uuid
 from urllib.parse import quote, urlencode
 
@@ -266,6 +261,6 @@ class TwitterSignIn:
 def facebook_social_check(access_token):
     url = "https://graph.facebook.com/me"
     headers = {"Authorization": f"Bearer {access_token}"}
-    response = requests.get(url, headers=headers, verify=False)
+    response = requests.get(url, headers=headers, verify=False, timeout=(20, 40))
     print(response.text)
     return response.json() if response.status_code == 200 else None
