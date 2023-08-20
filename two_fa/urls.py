@@ -6,6 +6,7 @@ from two_fa.views import (
     TOTPCreateView,
     TOTPDeleteView,
     TOTPVerifyView,
+    UserOTPDevice,
 )
 
 app_name = "two_fa"
@@ -22,4 +23,5 @@ urlpatterns = [
     path(
         "create_backup/", BackupCodesCreateView.as_view(), name="totp-create-backup"
     ),
+    path("user_device/", UserOTPDevice.as_view(), name="user_device"),
 ]

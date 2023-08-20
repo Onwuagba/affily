@@ -22,6 +22,7 @@ from common.permissions import IsAuthenticated
 from notification.utilities.tasks import send_notification_email
 from two_fa.models import CustomTOTPDeviceModel
 from two_fa.permissions import OtpRequired
+from two_fa.serializers import UserOTPDeviceSerializer
 from two_fa.utils import hash_string
 
 load_dotenv()
@@ -49,6 +50,7 @@ def get_or_create_custom_device(user_device, endpoint):
         custom_device.save()
 
 def get_user_static_device(user, confirmed=None):
+    # for holding backup codes
     devices = devices_for_user(user, confirmed=confirmed)
     for device in devices:
         if isinstance(device, StaticDevice):
@@ -377,4 +379,34 @@ class AccessOTPServiceWithLostDevice(APIView):
                 message = "Device already verified"
 
         response = CustomAPIResponse(message, status_code, code_status)
+        return response.send()
+    
+class UserOTPDevice(APIView):
+    permission_classes = (IsAuthenticated,)
+    serializer_class = UserOTPDeviceSerializer
+    http_method_names = ["get"]
+
+    def get_queryset(self, user):
+        return TOTPDevice.objects.filter(user=user) or None
+
+    def get(self, request):
+        """
+        Retrieve all user otp devices
+        """
+        try:
+            if queryset := self.get_queryset(request.user):
+                serializer = self.serializer_class(queryset, many=True)
+                message = serializer.data
+                status_code = status.HTTP_200_OK
+                stat = "success"
+            else:
+                message = "No device found for this user"
+                status_code = status.HTTP_400_BAD_REQUEST
+                stat = "failed"
+        except Exception as ex:
+            message = str(ex)
+            status_code = status.HTTP_400_BAD_REQUEST
+            stat = "failed"
+        
+        response = CustomAPIResponse(message, status_code, stat)
         return response.send()
