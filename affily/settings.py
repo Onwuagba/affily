@@ -82,6 +82,7 @@ MIDDLEWARE = [
     'django_otp.middleware.OTPMiddleware',
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    'common.middleware.RestrictAdminMiddleware',
     "drf_api_logger.middleware.api_logger_middleware.APILoggerMiddleware",
     "authy.middleware.admin_middleware.AutoLogoutMiddleware",
     # AxesMiddleware should be the last middleware in the MIDDLEWARE list.
@@ -271,6 +272,9 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_THROTTLE_RATES": {"anon": "15/day", "user": "800/day"},
 }
+
+# Restrict Django admin access to specific IP addresses
+ALLOWED_ADMIN_IPS = ['192.168.8.103','127.0.0.1']
 
 # OTP config
 OTP_ADMIN_HIDE_SENSITIVE_DATA = False  # change to True
