@@ -4,8 +4,7 @@ import os
 
 import celery
 from django.conf import settings
-from django.utils import timezone
-from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
+from django.core.management import call_command
 
 from affily.celery import app
 
@@ -19,8 +18,13 @@ class BaseTaskWithRetry(celery.Task):
 
 
 @app.task()
-def flush_expired_tokens(self):
-    OutstandingToken.objects.filter(expires_at__lt=timezone.now()).delete()
+def flush_expired_tokens():
+    """
+    Management command to flush expired/blacklisted tokens.
+    """
+    logger.info('Cleaning up expired tokens began ...')
+    call_command('flushexpiredtokens')
+    logger.info('Expired/Blacklisted token clean up ended')
 
 
 # @celery.shared_task(bind=True, base=BaseTaskWithRetry)
