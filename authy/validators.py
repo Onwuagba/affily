@@ -2,7 +2,14 @@ import re
 
 from django.core.exceptions import ValidationError
 
+def validate_name(value):
+    # This pattern allows letters, spaces, hyphens, and apostrophes.
+    pattern = r"^[A-Za-z\s'-]+$"
 
+    if not re.match(pattern, value):
+        raise ValidationError("Enter a valid first name.")
+    
+    
 def validate_phone_number(value):
     """
     Validate a phone number.

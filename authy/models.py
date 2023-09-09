@@ -17,7 +17,7 @@ from rest_framework.authtoken.models import Token
 
 from affily.settings import AXES_COOLOFF_TIME, AXES_FAILURE_LIMIT
 from authy.utilities.constants import CHANNELS
-from authy.validators import validate_phone_number
+from authy.validators import validate_name, validate_phone_number
 
 
 class BaseModel(models.Model):
@@ -91,8 +91,10 @@ class UserAccount(AbstractUser, PermissionsMixin, BaseModel):
             "unique": _("A user with that username already exists."),
         },
     )
-    first_name = models.CharField(max_length=50, null=False, blank=False)
-    last_name = models.CharField(max_length=50, null=False, blank=False)
+    first_name = models.CharField(max_length=50,
+        validators=[validate_name], null=False, blank=False)
+    last_name = models.CharField(max_length=50,
+        validators=[validate_name], null=False, blank=False)
     email = models.EmailField(db_index=True, max_length=255, unique=True)
     # password = models.CharField(max_length=32, null=False, blank=False)
     phone_number = models.CharField(
