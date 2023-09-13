@@ -373,9 +373,7 @@ class DeleteAccountView(APIView):
             "email": instance.email,
             "admin_email": admin_support_sender,
         }
-        logger.info(
-            f"context for email called from delete account endpoint: {context}"
-        )
+        logger.info(f"context for email called from delete account endpoint: {context}")
 
         # call celery
         send_notif_email.delay(email_content, context)
@@ -436,6 +434,7 @@ class LoginWith2fa(APIView):
         except TokenError as ex:
             raise InvalidToken(ex.args[0]) from ex
         except (ValidationError, Exception) as exc:
+            logger.error(f"Exception in 2fa login: {exc}")
             message = exc.args[0]
             code_status = "failed"
             status_code = (
