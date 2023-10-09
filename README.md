@@ -1,5 +1,7 @@
 # affily
 
+![affily](https://socialify.git.ci/Onwuagba/affily/image?description=1&descriptionEditable=Revolutionizing%20Affiliate%20Marketing%3A%20Harnessing%20the%20Power%20of%20AI%20and%20Real-Time%20Analytics%20for%20Seamless%20Affiliation%20Success.&font=KoHo&issues=1&language=1&name=1&owner=1&pattern=Circuit%20Board&stargazers=1&theme=Dark)
+
 
 
 ## Getting started
