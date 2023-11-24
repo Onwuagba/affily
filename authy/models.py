@@ -1,5 +1,6 @@
 import contextlib
 import datetime
+from typing import Any
 import uuid
 
 from axes.models import AccessAttempt
@@ -91,10 +92,12 @@ class UserAccount(AbstractUser, PermissionsMixin, BaseModel):
             "unique": _("A user with that username already exists."),
         },
     )
-    first_name = models.CharField(max_length=50,
-        validators=[validate_name], null=False, blank=False)
-    last_name = models.CharField(max_length=50,
-        validators=[validate_name], null=False, blank=False)
+    first_name = models.CharField(
+        max_length=50, validators=[validate_name], null=False, blank=False
+    )
+    last_name = models.CharField(
+        max_length=50, validators=[validate_name], null=False, blank=False
+    )
     email = models.EmailField(db_index=True, max_length=255, unique=True)
     # password = models.CharField(max_length=32, null=False, blank=False)
     phone_number = models.CharField(
@@ -150,10 +153,7 @@ class UserAccount(AbstractUser, PermissionsMixin, BaseModel):
             .first()
         )
 
-        if (
-            access_attempt
-            and access_attempt.failures_since_start >= AXES_FAILURE_LIMIT
-        ):
+        if access_attempt and access_attempt.failures_since_start >= AXES_FAILURE_LIMIT:
             lockout_start_time = access_attempt.attempt_time
             cooloff_period = datetime.timedelta(seconds=AXES_COOLOFF_TIME)
 

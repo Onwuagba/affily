@@ -373,7 +373,9 @@ class DeleteAccountView(APIView):
             "email": instance.email,
             "admin_email": admin_support_sender,
         }
-        logger.info(f"context for email called from delete account endpoint: {context}")
+        logger.info(
+            f"context for email called from delete account endpoint: {context}"
+        )
 
         # call celery
         send_notif_email.delay(email_content, context)

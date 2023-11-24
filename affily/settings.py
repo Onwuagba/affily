@@ -78,11 +78,10 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django_otp.middleware.OTPMiddleware',
+    "django_otp.middleware.OTPMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    'common.middleware.RestrictAdminMiddleware',
+    "common.middleware.RestrictAdminMiddleware",
     "drf_api_logger.middleware.api_logger_middleware.APILoggerMiddleware",
     "authy.middleware.admin_middleware.AutoLogoutMiddleware",
     # AxesMiddleware should be the last middleware in the MIDDLEWARE list.
@@ -162,8 +161,8 @@ SOCIALACCOUNT_PROVIDERS = {
 
 # DRF API LOGGER
 DRF_API_LOGGER_DATABASE = True
-DRF_LOGGER_QUEUE_MAX_SIZE = 50
-DRF_LOGGER_INTERVAL = 200
+DRF_LOGGER_QUEUE_MAX_SIZE = 50  # queue size to hold logs before doing bulk writes
+DRF_LOGGER_INTERVAL = 200  # time to wait before inserting logs if queue is not full
 DRF_API_LOGGER_EXCLUDE_KEYS = [
     "password",
     "confirm_password",
@@ -173,6 +172,7 @@ DRF_API_LOGGER_EXCLUDE_KEYS = [
 ]
 DRF_API_LOGGER_SLOW_API_ABOVE = 200  # to identify slow API calls
 DRF_API_LOGGER_TIMEDELTA = 60  # representing UTC + 60 mins
+DRF_API_LOGGER_DEFAULT_DATABASE = "default"
 
 # Password validation
 # https://docs.djangoproject.com/en/3.0/ref/settings/#auth-password-validators
@@ -200,9 +200,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # CELERY
-CELERY_BROKER_URL = (
-    "redis://" + os.getenv("REDIS_HOST") + ":" + os.getenv("REDIS_PORT")
-)
+CELERY_BROKER_URL = "redis://" + os.getenv("REDIS_HOST") + ":" + os.getenv("REDIS_PORT")
 CELERY_RESULT_BACKEND = (
     "redis://" + os.getenv("REDIS_HOST") + ":" + os.getenv("REDIS_PORT")
 )
@@ -274,7 +272,7 @@ REST_FRAMEWORK = {
 }
 
 # Restrict Django admin access to specific IP addresses
-ALLOWED_ADMIN_IPS = ['192.168.8.103','127.0.0.1']
+ALLOWED_ADMIN_IPS = ["192.168.8.103", "127.0.0.1"]
 
 # OTP config
 OTP_ADMIN_HIDE_SENSITIVE_DATA = False  # change to True

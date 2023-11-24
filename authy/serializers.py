@@ -13,6 +13,7 @@ from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt import serializers as jwt_serializers
+
 # from rest_framework_simplejwt.tokens import RefreshToken
 
 from authy.backends.custom_auth_backend import CustomBackend
@@ -56,7 +57,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
     confirm_password = serializers.CharField(write_only=True, required=True)
 
     class Meta:
-        model = UserAccount
+        model = get_user_model()
         exclude = [
             "regToken",
         ]
@@ -73,9 +74,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         if not data.get("password") or not data.get("confirm_password"):
-            raise serializers.ValidationError(
-                "Please enter a password and confirm it"
-            )
+            raise serializers.ValidationError("Please enter a password and confirm it")
         if data.get("password") != data.get("confirm_password"):
             raise serializers.ValidationError("Your passwords do not match")
 
@@ -105,9 +104,7 @@ class ConfirmEmailSerializer(serializers.Serializer):
         with transaction.atomic():
             try:
                 # token = CustomToken.generate_key()
-                CustomToken.objects.filter(
-                    user=instance.user, key=instance.key
-                ).update(
+                CustomToken.objects.filter(user=instance.user, key=instance.key).update(
                     # key=token, # can't update PK
                     expiry_date=instance.created,
                     verified_on=timezone.localtime(),
@@ -198,9 +195,7 @@ class ChangePasswordSerializer(serializers.Serializer):
 
     def validate(self, data):
         if not data.get("new_password") or not data.get("confirm_password"):
-            raise serializers.ValidationError(
-                "Please enter a password and confirm it"
-            )
+            raise serializers.ValidationError("Please enter a password and confirm it")
         if data.get("new_password") != data.get("confirm_password"):
             raise serializers.ValidationError("Your passwords do not match")
 
@@ -313,15 +308,15 @@ class CustomTokenSerializer(jwt_serializers.TokenObtainPairSerializer):
                 )
 
             # check axes for locked out user
-            check_lockout, check_lockout_msg = user.check_lockout()
-            if check_lockout:
-                raise AccountLocked(check_lockout_msg)
-            elif check_lockout_msg:
-                # workaround for axes_reset_on_success
-                # Wasn't working from settings.py
-                # check_lockout_msg is now an obj
-                check_lockout_msg.failures_since_start = 0
-                check_lockout_msg.save()
+            # check_lockout, check_lockout_msg = user.check_lockout()
+            # if check_lockout:
+            #     raise AccountLocked(check_lockout_msg)
+            # elif check_lockout_msg:
+            #     # workaround for axes_reset_on_success
+            #     # Wasn't working from settings.py
+            #     # check_lockout_msg is now an obj
+            #     check_lockout_msg.failures_since_start = 0
+            #     check_lockout_msg.save()
 
             if device := get_user_totp_device(user):
                 # generate token and return it.
@@ -557,9 +552,7 @@ class SocialSignUpSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         try:
-            return self.get_provider_class(
-                self.context.get("provider"), validated_data
-            )
+            return self.get_provider_class(self.context.get("provider"), validated_data)
         except AlreadyExists as ex:
             raise ex
         except Exception as e:
